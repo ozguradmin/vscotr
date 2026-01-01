@@ -91,5 +91,5 @@ export default async function UserProfilePage({ params }: PageProps) {
   )
 }
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+// ISR: 30 saniye cache, sonra arka planda yenile
+export const revalidate = 30

@@ -35,5 +35,5 @@ export default function KesfetPage() {
   )
 }
 
-export const dynamic = "force-dynamic"
-export const revalidate = 0
+// ISR: 60 saniye cache, public içerik daha uzun cache'lenebilir
+export const revalidate = 60

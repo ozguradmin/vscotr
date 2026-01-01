@@ -2,6 +2,7 @@ import type React from "react"
 import type { Metadata, Viewport } from "next"
 import { Inter } from "next/font/google"
 import { Analytics } from "@vercel/analytics/next"
+import { CacheProvider } from "@/lib/cache-context"
 import "./globals.css"
 
 const inter = Inter({
@@ -90,7 +91,9 @@ export default function RootLayout({
   return (
     <html lang="tr">
       <body className={`${inter.variable} font-sans antialiased`}>
-        {children}
+        <CacheProvider>
+          {children}
+        </CacheProvider>
         <Analytics />
       </body>
     </html>

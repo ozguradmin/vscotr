@@ -8,6 +8,7 @@ import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter, usePathname } from "next/navigation"
+import { useCache } from "@/lib/cache-context"
 import Link from "next/link"
 
 interface Post {
@@ -41,6 +42,8 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
   const mainRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
   const observerRef = useRef<IntersectionObserver | null>(null)
+  const cache = useCache()
+  const cacheKey = `feed-states-${currentUserId}`
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -64,9 +67,22 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
 
   useEffect(() => {
     if (currentUserId && posts.length > 0) {
-      loadPostStates()
+      // Önce cache'den yükle
+      const cached = cache.get<typeof postStates>(cacheKey)
+      if (cached && Object.keys(cached).length > 0) {
+        setPostStates(cached)
+      } else {
+        loadPostStates()
+      }
     }
   }, [currentUserId, posts])
+
+  // Post states değiştiğinde cache'e kaydet
+  useEffect(() => {
+    if (Object.keys(postStates).length > 0) {
+      cache.set(cacheKey, postStates, 300) // 5 dakika cache
+    }
+  }, [postStates])
 
   const loadPostStates = async () => {
     const postIds = posts.map((p) => p.id)
@@ -243,17 +259,15 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
                     <div className="flex items-center gap-2 flex-shrink-0">
                       <button
                         onClick={() => handleLike(post.id)}
-                        className={`p-2 hover:bg-accent rounded-full transition-colors ${
-                          postStates[post.id]?.liked ? "text-red-500" : ""
-                        }`}
+                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[post.id]?.liked ? "text-red-500" : ""
+                          }`}
                       >
                         <Heart className={`w-5 h-5 ${postStates[post.id]?.liked ? "fill-current" : ""}`} />
                       </button>
                       <button
                         onClick={() => handleRepost(post.id)}
-                        className={`p-2 hover:bg-accent rounded-full transition-colors ${
-                          postStates[post.id]?.reposted ? "text-green-500" : ""
-                        }`}
+                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[post.id]?.reposted ? "text-green-500" : ""
+                          }`}
                       >
                         <RotateCcw className="w-5 h-5" />
                       </button>

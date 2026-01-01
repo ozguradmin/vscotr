@@ -60,4 +60,5 @@ export default async function AkisPage() {
 }
 
 export const dynamic = "force-dynamic"
-export const revalidate = 0
+// 10 saniye cache - kişisel içerik daha sık güncellenmeli
+export const revalidate = 10

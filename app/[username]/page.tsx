@@ -30,9 +30,10 @@ async function ProfileContent({ username }: { username: string }) {
   const supabase = await createClient()
   const lowerUsername = username.toLowerCase()
 
+  // Önce profili çek
   const { data: profile, error } = await supabase
     .from("profiles")
-    .select("*")
+    .select("id, username, display_name, avatar_url, bio, member_badge, location")
     .eq("username", lowerUsername)
     .maybeSingle()
 
@@ -40,20 +41,52 @@ async function ProfileContent({ username }: { username: string }) {
     notFound()
   }
 
-  const [postsResult, linksResult, repostsResult, userResult] = await Promise.all([
-    supabase.from("posts").select("*").eq("user_id", profile.id).order("order_index", { ascending: true }),
-    supabase.from("profile_links").select("*").eq("profile_id", profile.id).order("order_index", { ascending: true }),
-    supabase.from("reposts").select("*, posts(*)").eq("user_id", profile.id).order("created_at", { ascending: false }),
-    supabase.auth.getUser(),
+  // Auth'u ayrı çek (hızlı)
+  const userResult = await supabase.auth.getUser()
+  const currentUser = userResult.data.user
+
+  // Sonra verileri paralel çek - sadece gerekli kolonlar
+  const [postsResult, linksResult, repostsResult] = await Promise.all([
+    supabase
+      .from("posts")
+      .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id")
+      .eq("user_id", profile.id)
+      .order("order_index", { ascending: true })
+      .limit(50),
+    supabase
+      .from("profile_links")
+      .select("id, label, url")
+      .eq("profile_id", profile.id)
+      .order("order_index", { ascending: true })
+      .limit(10),
+    supabase
+      .from("reposts")
+      .select("id, created_at, post_id")
+      .eq("user_id", profile.id)
+      .order("created_at", { ascending: false })
+      .limit(20),
   ])
 
   const posts = postsResult.data || []
   const links = linksResult.data || []
-  const reposts = repostsResult.data || []
-  const currentUser = userResult.data.user
 
-  // DEBUG: RLS kontrolü için log
-  console.log('[Profile Debug]', {
+  // Repost'ların post detaylarını ayrı çek (daha hızlı)
+  let reposts: any[] = []
+  if (repostsResult.data && repostsResult.data.length > 0) {
+    const postIds = repostsResult.data.map(r => r.post_id)
+    const { data: repostPosts } = await supabase
+      .from("posts")
+      .select("id, image_url, caption, aspect_ratio, user_id")
+      .in("id", postIds)
+
+    reposts = repostsResult.data.map(r => ({
+      ...r,
+      posts: repostPosts?.find(p => p.id === r.post_id) || null
+    })).filter(r => r.posts)
+  }
+
+  // DEBUG: Log
+  console.log('[Profile Debug v4]', {
     username: profile.username,
     profileId: profile.id,
     postsCount: posts.length,

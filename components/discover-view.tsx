@@ -84,7 +84,7 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
   // Post states değiştiğinde cache'e kaydet
   useEffect(() => {
     if (Object.keys(postStates).length > 0 && currentUserId) {
-      cache.set(cacheKey, postStates, 300) // 5 dakika cache
+      cache.set(cacheKey, postStates, 600) // 10 dakika cache
     }
   }, [postStates])
 
@@ -217,10 +217,10 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
-          <button onClick={handleHeaderClick} className="flex items-center gap-2">
+          <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR</span>
-          </button>
+            <span className="font-semibold">VSCO TR 3</span>
+          </Link>
           <div className="flex items-center gap-1">
             <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
               <Search className="w-5 h-5" />

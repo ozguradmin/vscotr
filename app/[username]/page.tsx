@@ -52,6 +52,15 @@ async function ProfileContent({ username }: { username: string }) {
   const reposts = repostsResult.data || []
   const currentUser = userResult.data.user
 
+  // DEBUG: RLS kontrolü için log
+  console.log('[Profile Debug]', {
+    username: profile.username,
+    profileId: profile.id,
+    postsCount: posts.length,
+    postsError: postsResult.error,
+    hasCurrentUser: !!currentUser,
+  })
+
   let isFollowing = false
   if (currentUser && currentUser.id !== profile.id) {
     const { data: follow } = await supabase

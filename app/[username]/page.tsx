@@ -91,5 +91,7 @@ export default async function UserProfilePage({ params }: PageProps) {
   )
 }
 
-// ISR: 30 saniye cache, sonra arka planda yenile
-export const revalidate = 30
+// Profile sayfası force-dynamic olmalı çünkü:
+// 1. Auth durumuna göre farklı içerik (takip butonu, düzenleme vs)
+// 2. Supabase RLS politikaları ISR cache'i ile çakışıyor
+export const dynamic = "force-dynamic"

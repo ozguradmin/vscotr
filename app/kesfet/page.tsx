@@ -35,5 +35,5 @@ export default function KesfetPage() {
   )
 }
 
-// ISR: 60 saniye cache, public içerik daha uzun cache'lenebilir
-export const revalidate = 60
+// Supabase RLS politikaları auth gerektiriyorsa force-dynamic gerekli
+export const dynamic = "force-dynamic"

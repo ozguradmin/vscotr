@@ -7,19 +7,44 @@ import { createClient } from "@/lib/supabase/client"
 
 export function LandingPage() {
   const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
+  const [isLoading, setIsLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<any | null>(null)
   const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     const loadFeaturedPosts = async () => {
-      const { data } = await supabase
-        .from("posts")
-        .select("id, image_url, aspect_ratio, caption, profiles(username, avatar_url)")
-        .order("created_at", { ascending: false })
-        .limit(8)
+      try {
+        // JOIN olmadan basit query - timeout'u önlemek için
+        const { data: posts, error } = await supabase
+          .from("posts")
+          .select("id, image_url, aspect_ratio, caption, user_id")
+          .order("created_at", { ascending: false })
+          .limit(8)
 
-      if (data) {
-        setFeaturedPosts(data)
+        if (error) {
+          console.error('[Landing] Posts error:', error)
+          setIsLoading(false)
+          return
+        }
+
+        if (posts && posts.length > 0) {
+          // Profilleri ayrı çek
+          const userIds = [...new Set(posts.map(p => p.user_id))]
+          const { data: profiles } = await supabase
+            .from("profiles")
+            .select("id, username, avatar_url")
+            .in("id", userIds)
+
+          const postsWithProfiles = posts.map(post => ({
+            ...post,
+            profiles: profiles?.find(p => p.id === post.user_id) || null
+          }))
+          setFeaturedPosts(postsWithProfiles)
+        }
+      } catch (err) {
+        console.error('[Landing] Error:', err)
+      } finally {
+        setIsLoading(false)
       }
     }
     loadFeaturedPosts()
@@ -32,7 +57,7 @@ export function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR</span>
+            <span className="font-semibold">VSCO TR 5</span>
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/giris" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -80,8 +105,12 @@ export function LandingPage() {
             Topluluktan
           </h2>
           <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
-            {featuredPosts.length > 0
-              ? featuredPosts.map((post) => (
+            {isLoading
+              ? Array.from({ length: 8 }).map((_, i) => (
+                <div key={i} className="aspect-square bg-muted animate-pulse" />
+              ))
+              : featuredPosts.length > 0
+                ? featuredPosts.map((post) => (
                   <button
                     key={post.id}
                     onClick={() => setSelectedPost(post)}
@@ -91,17 +120,13 @@ export function LandingPage() {
                       src={post.image_url || "/placeholder.svg"}
                       alt=""
                       className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                      style={{ aspectRatio: post.aspect_ratio || 1 }}
+                      loading="lazy"
                     />
                   </button>
                 ))
-              : Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="aspect-square bg-muted overflow-hidden">
-                    <img
-                      src={`/artistic-photography-.jpg?height=400&width=400`}
-                      alt=""
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                    />
+                : Array.from({ length: 8 }).map((_, i) => (
+                  <div key={i} className="aspect-square bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                    Görsel yok
                   </div>
                 ))}
           </div>

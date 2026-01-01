@@ -6,23 +6,35 @@ import { DiscoverSkeleton } from "@/components/skeleton-loader"
 async function DiscoverContent() {
   const supabase = await createClient()
 
-  // Önce auth ve posts'u paralel çek (JOIN olmadan)
-  const [postsResult, userResult] = await Promise.all([
-    supabase
-      .from("posts")
-      .select("id, image_url, caption, aspect_ratio, user_id, created_at")
-      .order("created_at", { ascending: false })
-      .limit(50), // 100'den 50'ye düşürdük
+  // Posts query with retry logic
+  const fetchPosts = async (retries = 3): Promise<any[]> => {
+    for (let i = 0; i < retries; i++) {
+      const result = await supabase
+        .from("posts")
+        .select("id, image_url, caption, aspect_ratio, user_id, created_at")
+        .order("created_at", { ascending: false })
+        .limit(50)
+
+      if (!result.error) return result.data || []
+      if (result.error.code !== '57014') return [] // Non-timeout error
+
+      console.log(`[Kesfet] Posts retry ${i + 1}/${retries}`)
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 500 * (i + 1)))
+    }
+    return []
+  }
+
+  // Posts retry ile, auth paralel
+  const [rawPosts, userResult] = await Promise.all([
+    fetchPosts(),
     supabase.auth.getUser(),
   ])
 
-  const rawPosts = postsResult.data || []
   const user = userResult.data.user
 
-  // DEBUG
-  console.log('[Kesfet Debug v4]', {
+  // DEBUG v6
+  console.log('[Kesfet Debug v6]', {
     postsCount: rawPosts.length,
-    postsError: postsResult.error,
     hasCurrentUser: !!user,
   })
 

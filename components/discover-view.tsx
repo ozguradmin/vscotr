@@ -219,7 +219,7 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
         <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
           <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR 5</span>
+            <span className="font-semibold">VSCO TR 6</span>
           </Link>
           <div className="flex items-center gap-1">
             <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>

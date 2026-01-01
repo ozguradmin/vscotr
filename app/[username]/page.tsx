@@ -45,14 +45,28 @@ async function ProfileContent({ username }: { username: string }) {
   const userResult = await supabase.auth.getUser()
   const currentUser = userResult.data.user
 
-  // Sonra verileri paralel çek - sadece gerekli kolonlar
-  const [postsResult, linksResult, repostsResult] = await Promise.all([
-    supabase
-      .from("posts")
-      .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id")
-      .eq("user_id", profile.id)
-      .order("order_index", { ascending: true })
-      .limit(50),
+  // Posts query with retry logic
+  const fetchPosts = async (retries = 3): Promise<any[]> => {
+    for (let i = 0; i < retries; i++) {
+      const result = await supabase
+        .from("posts")
+        .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id")
+        .eq("user_id", profile.id)
+        .order("order_index", { ascending: true })
+        .limit(50)
+
+      if (!result.error) return result.data || []
+      if (result.error.code !== '57014') return [] // Non-timeout error
+
+      console.log(`[Profile] Posts retry ${i + 1}/${retries}`)
+      if (i < retries - 1) await new Promise(r => setTimeout(r, 500 * (i + 1)))
+    }
+    return []
+  }
+
+  // Links ve reposts paralel, posts retry ile
+  const [posts, linksResult, repostsResult] = await Promise.all([
+    fetchPosts(),
     supabase
       .from("profile_links")
       .select("id, label, url")
@@ -67,10 +81,9 @@ async function ProfileContent({ username }: { username: string }) {
       .limit(20),
   ])
 
-  const posts = postsResult.data || []
   const links = linksResult.data || []
 
-  // Repost'ların post detaylarını ayrı çek (daha hızlı)
+  // Repost'ların post detaylarını ayrı çek
   let reposts: any[] = []
   if (repostsResult.data && repostsResult.data.length > 0) {
     const postIds = repostsResult.data.map(r => r.post_id)
@@ -85,12 +98,10 @@ async function ProfileContent({ username }: { username: string }) {
     })).filter(r => r.posts)
   }
 
-  // DEBUG: Log
-  console.log('[Profile Debug v4]', {
+  // DEBUG: Log v6
+  console.log('[Profile Debug v6]', {
     username: profile.username,
-    profileId: profile.id,
     postsCount: posts.length,
-    postsError: postsResult.error,
     hasCurrentUser: !!currentUser,
   })
 

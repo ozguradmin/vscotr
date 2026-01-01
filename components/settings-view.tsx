@@ -8,6 +8,7 @@ import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
+import { VscoImage } from "@/components/vsco-image"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -245,7 +246,7 @@ export function SettingsView({
 
     const newPosts = [...posts]
     const swapIndex = direction === "up" ? index - 1 : index + 1
-    ;[newPosts[index], newPosts[swapIndex]] = [newPosts[swapIndex], newPosts[index]]
+      ;[newPosts[index], newPosts[swapIndex]] = [newPosts[swapIndex], newPosts[index]]
 
     for (let i = 0; i < newPosts.length; i++) {
       await supabase.from("posts").update({ order_index: i }).eq("id", newPosts[i].id)
@@ -314,9 +315,8 @@ export function SettingsView({
         <div className="flex gap-4 border-b border-border mb-6 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "profile" ? "text-foreground" : "text-muted-foreground"
-            }`}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${activeTab === "profile" ? "text-foreground" : "text-muted-foreground"
+              }`}
           >
             <User className="w-4 h-4" />
             Profil
@@ -324,18 +324,16 @@ export function SettingsView({
           </button>
           <button
             onClick={() => setActiveTab("posts")}
-            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${
-              activeTab === "posts" ? "text-foreground" : "text-muted-foreground"
-            }`}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "posts" ? "text-foreground" : "text-muted-foreground"
+              }`}
           >
             Gönderiler
             {activeTab === "posts" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("reposts")}
-            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "reposts" ? "text-foreground" : "text-muted-foreground"
-            }`}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${activeTab === "reposts" ? "text-foreground" : "text-muted-foreground"
+              }`}
           >
             <RotateCcw className="w-4 h-4" />
             Repostlar
@@ -343,9 +341,8 @@ export function SettingsView({
           </button>
           <button
             onClick={() => setActiveTab("account")}
-            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${
-              activeTab === "account" ? "text-foreground" : "text-muted-foreground"
-            }`}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap flex items-center gap-2 ${activeTab === "account" ? "text-foreground" : "text-muted-foreground"
+              }`}
           >
             <Key className="w-4 h-4" />
             Hesap
@@ -361,10 +358,11 @@ export function SettingsView({
                 onClick={() => avatarInputRef.current?.click()}
               >
                 {formData.avatar_url ? (
-                  <img
-                    src={formData.avatar_url || "/placeholder.svg"}
+                {formData.avatar_url ? (
+                  <VscoImage
+                    src={formData.avatar_url}
                     alt="Avatar"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full"
                   />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-muted-foreground">
@@ -464,178 +462,181 @@ export function SettingsView({
               </div>
             </div>
           </div>
-        ) : activeTab === "posts" ? (
-          <div className="space-y-4 pb-6">
-            <Link href="/olustur">
-              <Button className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Gönderi Ekle
-              </Button>
-            </Link>
-            {posts.length > 0 ? (
-              posts.map((post, index) => (
-                <div key={post.id} className="flex gap-3 p-4 border border-border rounded-lg">
-                  <img
-                    src={post.image_url || "/placeholder.svg"}
-                    alt=""
-                    className="w-20 h-20 object-cover rounded flex-shrink-0"
-                  />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <Input
-                      placeholder="Açıklama (isteğe bağlı)"
-                      value={post.caption || ""}
-                      onChange={(e) => handleUpdatePost(post.id, "caption", e.target.value)}
-                      className="w-full"
-                    />
-                    <Input
-                      type="date"
-                      value={post.post_date ? new Date(post.post_date).toISOString().slice(0, 10) : ""}
-                      onChange={(e) => handleUpdatePost(post.id, "post_date", e.target.value)}
-                      placeholder="Tarih (isteğe bağlı)"
-                      className="w-full"
-                    />
-                  </div>
-                  <div className="flex flex-col justify-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleUpdatePostOrder(post.id, "up")}
-                      disabled={index === 0}
-                      className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
-                      title="Yukarı taşı"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => handleUpdatePostOrder(post.id, "down")}
-                      disabled={index === posts.length - 1}
-                      className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
-                      title="Aşağı taşı"
-                    >
-                      ▼
-                    </button>
-                    <button
-                      onClick={() => handleDeletePost(post.id)}
-                      className="p-2 hover:bg-destructive/10 rounded"
-                      title="Sil"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
-                  </div>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground py-8">Henüz gönderin yok</p>
-            )}
-          </div>
-        ) : activeTab === "reposts" ? (
-          <div className="space-y-4">
-            {reposts && reposts.length > 0 ? (
-              reposts.map((repost) => (
-                <div key={repost.id} className="flex gap-4 p-4 border border-border rounded-lg">
-                  <img
-                    src={repost.posts.image_url || "/placeholder.svg"}
-                    alt=""
-                    className="w-20 h-20 object-cover rounded flex-shrink-0"
-                    style={{ aspectRatio: repost.posts.aspect_ratio || 1 }}
-                  />
-                  <div className="flex-1 min-w-0">
-                    <p className="text-sm text-muted-foreground">
-                      {new Date(repost.created_at).toLocaleDateString("tr-TR", {
-                        year: "numeric",
-                        month: "long",
-                        day: "2-digit",
-                      })}
-                    </p>
-                    {repost.posts.caption && <p className="text-sm mt-1">{repost.posts.caption}</p>}
-                  </div>
-                  <button onClick={() => handleDeleteRepost(repost.id)} className="p-2 hover:bg-accent rounded">
-                    <Trash2 className="w-4 h-4 text-red-500" />
-                  </button>
-                </div>
-              ))
-            ) : (
-              <p className="text-center text-muted-foreground py-8">Henüz repostun yok</p>
-            )}
-          </div>
-        ) : (
-          <div className="space-y-8">
-            <div className="p-4 bg-muted rounded-lg">
-              <p className="text-sm text-muted-foreground">E-posta</p>
-              <p className="font-medium">{userEmail}</p>
+  ) : activeTab === "posts" ? (
+    <div className="space-y-4 pb-6">
+      <Link href="/olustur">
+        <Button className="w-full">
+          <Plus className="w-4 h-4 mr-2" />
+          Gönderi Ekle
+        </Button>
+      </Link>
+      {posts.length > 0 ? (
+        posts.map((post, index) => (
+          <div key={post.id} className="flex gap-3 p-4 border border-border rounded-lg">
+            <VscoImage
+              src={post.image_url || "/placeholder.svg"}
+              alt=""
+              className="w-20 h-20 rounded flex-shrink-0 transform-none"
+            />
+            <div className="flex-1 min-w-0 space-y-2">
+              <Input
+                placeholder="Açıklama (isteğe bağlı)"
+                value={post.caption || ""}
+                onChange={(e) => handleUpdatePost(post.id, "caption", e.target.value)}
+                className="w-full"
+              />
+              <Input
+                type="date"
+                value={post.post_date ? new Date(post.post_date).toISOString().slice(0, 10) : ""}
+                onChange={(e) => handleUpdatePost(post.id, "post_date", e.target.value)}
+                placeholder="Tarih (isteğe bağlı)"
+                className="w-full"
+              />
             </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium">Kullanıcı Adını Değiştir</h3>
-              <div>
-                <Label htmlFor="new_username">Yeni Kullanıcı Adı</Label>
-                <Input
-                  id="new_username"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleChangeUsername} variant="outline">
-                Kullanıcı Adını Değiştir
-              </Button>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium">Şifre Değiştir</h3>
-              <div>
-                <Label htmlFor="new_password">Yeni Şifre</Label>
-                <Input
-                  id="new_password"
-                  type="password"
-                  value={newPassword}
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <div>
-                <Label htmlFor="confirm_password">Yeni Şifre (Tekrar)</Label>
-                <Input
-                  id="confirm_password"
-                  type="password"
-                  value={confirmPassword}
-                  onChange={(e) => setConfirmPassword(e.target.value)}
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleChangePassword} variant="outline">
-                Şifreyi Değiştir
-              </Button>
-            </div>
-
-            {accountError && <p className="text-sm text-red-500">{accountError}</p>}
-            {accountSuccess && <p className="text-sm text-green-500">{accountSuccess}</p>}
-          </div>
-        )}
-      </main>
-
-      {deletePostConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold mb-2">Gönderiyi Sil</h3>
-            <p className="text-sm text-muted-foreground mb-4">Bu gönderiyi silmek istediğinize emin misiniz?</p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setDeletePostConfirm(null)} className="flex-1">
-                İptal
-              </Button>
-              <Button onClick={confirmDeletePost} className="flex-1 bg-red-500 hover:bg-red-600">
-                Sil
-              </Button>
+            <div className="flex flex-col justify-center gap-1 flex-shrink-0">
+              <button
+                onClick={() => handleUpdatePostOrder(post.id, "up")}
+                disabled={index === 0}
+                className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
+                title="Yukarı taşı"
+              >
+                ▲
+              </button>
+              <button
+                onClick={() => handleUpdatePostOrder(post.id, "down")}
+                disabled={index === posts.length - 1}
+                className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
+                title="Aşağı taşı"
+              >
+                ▼
+              </button>
+              <button
+                onClick={() => handleDeletePost(post.id)}
+                className="p-2 hover:bg-destructive/10 rounded"
+                title="Sil"
+              >
+                <Trash2 className="w-4 h-4 text-red-500" />
+              </button>
             </div>
           </div>
-        </div>
+        ))
+      ) : (
+        <p className="text-center text-muted-foreground py-8">Henüz gönderin yok</p>
       )}
-
-      {toast && (
-        <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-top-2">
-          {toast}
-        </div>
-      )}
-
-      <MobileTabBar currentUserId={userId} username={profile?.username} />
     </div>
+  ) : activeTab === "reposts" ? (
+    <div className="space-y-4">
+      {reposts && reposts.length > 0 ? (
+        reposts.map((repost) => (
+          <div key={repost.id} className="flex gap-4 p-4 border border-border rounded-lg">
+            <VscoImage
+              src={repost.posts.image_url || "/placeholder.svg"}
+              alt=""
+              className="w-20 h-20 rounded flex-shrink-0"
+              aspectRatio={repost.posts.aspect_ratio || 1}
+            />
+            <div className="flex-1 min-w-0">
+              <p className="text-sm text-muted-foreground">
+                {new Date(repost.created_at).toLocaleDateString("tr-TR", {
+                  year: "numeric",
+                  month: "long",
+                  day: "2-digit",
+                })}
+              </p>
+              {repost.posts.caption && <p className="text-sm mt-1">{repost.posts.caption}</p>}
+            </div>
+            <button onClick={() => handleDeleteRepost(repost.id)} className="p-2 hover:bg-accent rounded">
+              <Trash2 className="w-4 h-4 text-red-500" />
+            </button>
+          </div>
+        ))
+      ) : (
+        <p className="text-center text-muted-foreground py-8">Henüz repostun yok</p>
+      )}
+    </div>
+  ) : (
+    <div className="space-y-8">
+      <div className="p-4 bg-muted rounded-lg">
+        <p className="text-sm text-muted-foreground">E-posta</p>
+        <p className="font-medium">{userEmail}</p>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Kullanıcı Adını Değiştir</h3>
+        <div>
+          <Label htmlFor="new_username">Yeni Kullanıcı Adı</Label>
+          <Input
+            id="new_username"
+            value={newUsername}
+            onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
+            className="mt-1"
+          />
+        </div>
+        <Button onClick={handleChangeUsername} variant="outline">
+          Kullanıcı Adını Değiştir
+        </Button>
+      </div>
+
+      <div className="space-y-4">
+        <h3 className="font-medium">Şifre Değiştir</h3>
+        <div>
+          <Label htmlFor="new_password">Yeni Şifre</Label>
+          <Input
+            id="new_password"
+            type="password"
+            value={newPassword}
+            onChange={(e) => setNewPassword(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <div>
+          <Label htmlFor="confirm_password">Yeni Şifre (Tekrar)</Label>
+          <Input
+            id="confirm_password"
+            type="password"
+            value={confirmPassword}
+            onChange={(e) => setConfirmPassword(e.target.value)}
+            className="mt-1"
+          />
+        </div>
+        <Button onClick={handleChangePassword} variant="outline">
+          Şifreyi Değiştir
+        </Button>
+      </div>
+
+      {accountError && <p className="text-sm text-red-500">{accountError}</p>}
+      {accountSuccess && <p className="text-sm text-green-500">{accountSuccess}</p>}
+    </div>
+  )
+}
+      </main >
+
+  { deletePostConfirm && (
+    <div className="fixed inset-0 z-50 bg-black/50 flex items-center justify-center p-4">
+      <div className="bg-background border border-border rounded-lg p-6 max-w-sm w-full">
+        <h3 className="text-lg font-semibold mb-2">Gönderiyi Sil</h3>
+        <p className="text-sm text-muted-foreground mb-4">Bu gönderiyi silmek istediğinize emin misiniz?</p>
+        <div className="flex gap-3">
+          <Button variant="outline" onClick={() => setDeletePostConfirm(null)} className="flex-1">
+            İptal
+          </Button>
+          <Button onClick={confirmDeletePost} className="flex-1 bg-red-500 hover:bg-red-600">
+            Sil
+          </Button>
+        </div>
+      </div>
+    </div>
+  )}
+
+{
+  toast && (
+    <div className="fixed top-20 left-1/2 -translate-x-1/2 bg-foreground text-background px-6 py-3 rounded-lg shadow-lg z-50 animate-in fade-in slide-in-from-top-2">
+      {toast}
+    </div>
+  )
+}
+
+<MobileTabBar currentUserId={userId} username={profile?.username} />
+    </div >
   )
 }

@@ -1,176 +1,138 @@
 "use client"
 
 import type React from "react"
-
-import { useState, useEffect, useMemo } from "react"
+import { useState, useEffect, useRef } from "react"
 import {
   Search,
   Menu,
   X,
-  MapPin,
-  LinkIcon,
+  Share2,
+  Grid,
+  RotateCcw,
   ChevronLeft,
   ChevronRight,
   Heart,
-  RotateCcw,
-  Plus,
-  Share2,
-  MoreVertical,
-  Edit,
-  Trash2,
 } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
+import { EditProfileModal } from "@/components/edit-profile-modal"
+import { SettingsModal } from "@/components/settings-modal"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { Button } from "@/components/ui/button"
+import { useCache } from "@/lib/cache-context"
+import { VscoImage } from "@/components/vsco-image"
 
 interface Profile {
   id: string
   username: string
   display_name: string | null
-  avatar_url: string | null
   bio: string | null
+  avatar_url: string | null
   member_badge: string | null
-  location: string | null
 }
 
 interface Post {
   id: string
   image_url: string
   caption: string | null
-  post_date: string | null
   aspect_ratio: number
-  order_index: number
-  user_id: string
-  likes_count?: number
-  reposts_count?: number
-  is_liked?: boolean
-  is_reposted?: boolean
-}
-
-interface ProfileLink {
-  id: string
-  label: string | null
-  url: string
-}
-
-interface Repost {
-  id: string
-  posts: Post & { profiles?: Profile }
   created_at: string
 }
 
 interface ProfileViewProps {
   profile: Profile
+  isOwner: boolean
   posts: Post[]
-  links: ProfileLink[]
-  reposts: Repost[]
+  reposts: Post[]
   currentUserId?: string
-  isFollowing: boolean
-  isOwnProfile: boolean
+  currentUsername?: string
 }
 
 export function ProfileView({
   profile,
-  posts,
-  links,
-  reposts,
+  isOwner,
+  posts: initialPosts,
+  reposts: initialReposts,
   currentUserId,
-  isFollowing: initialIsFollowing,
-  isOwnProfile,
+  currentUsername,
 }: ProfileViewProps) {
-  const [activeTab, setActiveTab] = useState<"recent" | "reposts">("recent")
+  const [activeTab, setActiveTab] = useState<"posts" | "reposts">("posts")
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [editProfileOpen, setEditProfileOpen] = useState(false)
+  const [settingsOpen, setSettingsOpen] = useState(false)
   const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null)
-  const [isFollowing, setIsFollowing] = useState(initialIsFollowing)
-  const [followLoading, setFollowLoading] = useState(false)
-  const [postStates, setPostStates] = useState<
-    Record<string, { liked: boolean; reposted: boolean; likesCount: number }>
-  >({})
+  const [isFollowing, setIsFollowing] = useState(false)
+  const [postStates, setPostStates] = useState<Record<string, { liked: boolean; reposted: boolean }>>({})
   const [touchStart, setTouchStart] = useState<number | null>(null)
   const [touchEnd, setTouchEnd] = useState<number | null>(null)
-  const [showPostMenu, setShowPostMenu] = useState(false)
-  const [deleteConfirmOpen, setDeleteConfirmOpen] = useState(false)
-  const [postToDelete, setPostToDelete] = useState<string | null>(null)
-  const [followersCount, setFollowersCount] = useState(0)
-  const [followingCount, setFollowingCount] = useState(0)
+
+  const supabase = createClient()
   const router = useRouter()
+  const cache = useCache()
+  const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
 
-  const supabase = useMemo(() => createClient(), [])
+  const currentPosts = activeTab === "posts" ? initialPosts : initialReposts
 
-  // Post durumlarını yükle
   useEffect(() => {
-    if (currentUserId && posts.length > 0) {
-      loadPostStates()
+    window.scrollTo(0, 0)
+    checkFollowStatus()
+  }, [currentUserId, profile.id])
+
+  useEffect(() => {
+    if (currentUserId && currentPosts.length > 0) {
+      // Load from cache first
+      const cached = cache.get<typeof postStates>(cacheKey)
+      if (cached && Object.keys(cached).length > 0) {
+        setPostStates(cached)
+      } else {
+        loadPostStates()
+      }
     }
-  }, [currentUserId, posts])
+  }, [currentUserId, currentPosts, activeTab])
+
+  useEffect(() => {
+    if (Object.keys(postStates).length > 0 && currentUserId) {
+      cache.set(cacheKey, postStates, 600) // 10 min cache
+    }
+  }, [postStates])
+
+  const checkFollowStatus = async () => {
+    if (!currentUserId) return
+    const { data } = await supabase
+      .from("follows")
+      .select("*")
+      .eq("follower_id", currentUserId)
+      .eq("following_id", profile.id)
+      .single()
+    setIsFollowing(!!data)
+  }
 
   const loadPostStates = async () => {
-    const postIds = posts.map((p) => p.id)
+    if (!currentUserId || currentPosts.length === 0) return
 
-    // Beğenileri al
-    const { data: likes } = await supabase
-      .from("likes")
-      .select("post_id")
-      .eq("user_id", currentUserId!)
-      .in("post_id", postIds)
+    const postIds = currentPosts.map((p) => p.id)
 
-    // Repostları al
-    const { data: userReposts } = await supabase
-      .from("reposts")
-      .select("post_id")
-      .eq("user_id", currentUserId!)
-      .in("post_id", postIds)
+    const [likesResult, repostsResult] = await Promise.all([
+      supabase.from("likes").select("post_id").eq("user_id", currentUserId).in("post_id", postIds),
+      supabase.from("reposts").select("post_id").eq("user_id", currentUserId).in("post_id", postIds),
+    ])
 
-    // Beğeni sayılarını al
-    const { data: likeCounts } = await supabase.from("likes").select("post_id").in("post_id", postIds)
+    const likedPosts = new Set(likesResult.data?.map((l) => l.post_id) || [])
+    const repostedPosts = new Set(repostsResult.data?.map((r) => r.post_id) || [])
 
-    const likedPosts = new Set(likes?.map((l) => l.post_id) || [])
-    const repostedPosts = new Set(userReposts?.map((r) => r.post_id) || [])
-    const likeCountMap: Record<string, number> = {}
-    likeCounts?.forEach((l) => {
-      likeCountMap[l.post_id] = (likeCountMap[l.post_id] || 0) + 1
-    })
-
-    const states: Record<string, { liked: boolean; reposted: boolean; likesCount: number }> = {}
-    posts.forEach((post) => {
+    const states: Record<string, { liked: boolean; reposted: boolean }> = {}
+    currentPosts.forEach((post) => {
       states[post.id] = {
         liked: likedPosts.has(post.id),
         reposted: repostedPosts.has(post.id),
-        likesCount: likeCountMap[post.id] || 0,
       }
     })
-    setPostStates(states)
+    setPostStates((prev) => ({ ...prev, ...states }))
   }
-
-  useEffect(() => {
-    if (isOwnProfile) {
-      loadFollowCounts()
-    }
-  }, [isOwnProfile])
-
-  const loadFollowCounts = async () => {
-    const { count: followers } = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("following_id", profile.id)
-
-    const { count: following } = await supabase
-      .from("follows")
-      .select("*", { count: "exact", head: true })
-      .eq("follower_id", profile.id)
-
-    setFollowersCount(followers || 0)
-    setFollowingCount(following || 0)
-  }
-
-  const currentPosts = activeTab === "recent" ? posts : reposts.map((r) => r.posts)
-  const selectedPost = selectedPostIndex !== null ? currentPosts[selectedPostIndex] : null
 
   const handleFollow = async () => {
     if (!currentUserId) {
@@ -178,20 +140,15 @@ export function ProfileView({
       return
     }
 
-    setFollowLoading(true)
-
-    try {
-      if (isFollowing) {
-        await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", profile.id)
-        setIsFollowing(false)
-      } else {
-        await supabase.from("follows").insert({ follower_id: currentUserId, following_id: profile.id })
-        setIsFollowing(true)
-      }
-    } catch (error) {
-      console.error("Takip hatası:", error)
-    } finally {
-      setFollowLoading(false)
+    if (isFollowing) {
+      await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", profile.id)
+      setIsFollowing(false)
+    } else {
+      await supabase.from("follows").insert({
+        follower_id: currentUserId,
+        following_id: profile.id,
+      })
+      setIsFollowing(true)
     }
   }
 
@@ -205,16 +162,10 @@ export function ProfileView({
 
     if (currentState?.liked) {
       await supabase.from("likes").delete().eq("user_id", currentUserId).eq("post_id", postId)
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], liked: false, likesCount: prev[postId].likesCount - 1 },
-      }))
+      setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], liked: false } }))
     } else {
       await supabase.from("likes").insert({ user_id: currentUserId, post_id: postId })
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], liked: true, likesCount: (prev[postId]?.likesCount || 0) + 1 },
-      }))
+      setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], liked: true } }))
     }
   }
 
@@ -228,41 +179,22 @@ export function ProfileView({
 
     if (currentState?.reposted) {
       await supabase.from("reposts").delete().eq("user_id", currentUserId).eq("post_id", postId)
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], reposted: false },
-      }))
+      setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], reposted: false } }))
     } else {
       await supabase.from("reposts").insert({ user_id: currentUserId, post_id: postId })
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], reposted: true },
-      }))
-    }
-    router.refresh()
-  }
-
-  const handleShare = async () => {
-    const profileUrl = `${window.location.origin}/${profile.username}`
-
-    if (navigator.share) {
-      try {
-        await navigator.share({
-          title: `${profile.username} - VSCO TR`,
-          url: profileUrl,
-        })
-      } catch (err) {
-        // User cancelled
-      }
-    } else {
-      navigator.clipboard.writeText(profileUrl)
-      alert("Profil linki kopyalandı!")
+      setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], reposted: true } }))
     }
   }
 
-  const handleDeletePost = async (postId: string) => {
-    await supabase.from("posts").delete().eq("id", postId)
-    router.refresh()
+  const selectedPost = selectedPostIndex !== null ? currentPosts[selectedPostIndex] : null
+
+  const navigatePost = (direction: "prev" | "next") => {
+    if (selectedPostIndex === null) return
+    if (direction === "prev" && selectedPostIndex > 0) {
+      setSelectedPostIndex(selectedPostIndex - 1)
+    } else if (direction === "next" && selectedPostIndex < currentPosts.length - 1) {
+      setSelectedPostIndex(selectedPostIndex + 1)
+    }
   }
 
   const minSwipeDistance = 50
@@ -282,34 +214,10 @@ export function ProfileView({
     const isLeftSwipe = distance > minSwipeDistance
     const isRightSwipe = distance < -minSwipeDistance
 
-    if (isLeftSwipe) {
-      navigatePost("next")
-    }
-    if (isRightSwipe) {
-      navigatePost("prev")
-    }
+    if (isLeftSwipe) navigatePost("next")
+    if (isRightSwipe) navigatePost("prev")
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null
-    const date = new Date(dateString)
-    return date.toLocaleDateString("tr-TR", {
-      year: "numeric",
-      month: "long",
-      day: "2-digit",
-    })
-  }
-
-  const navigatePost = (direction: "prev" | "next") => {
-    if (selectedPostIndex === null) return
-    if (direction === "prev" && selectedPostIndex > 0) {
-      setSelectedPostIndex(selectedPostIndex - 1)
-    } else if (direction === "next" && selectedPostIndex < currentPosts.length - 1) {
-      setSelectedPostIndex(selectedPostIndex + 1)
-    }
-  }
-
-  // Klavye navigasyonu
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (selectedPostIndex === null) return
@@ -321,222 +229,172 @@ export function ProfileView({
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedPostIndex, currentPosts.length])
 
-  const canInteract = currentUserId && !isOwnProfile
-
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
-      {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b border-border">
-        <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
-          <div className="flex items-center gap-2">
-            <Link href="/">
-              <VscoLogo className="w-8 h-8" />
-            </Link>
-            <span className="text-sm text-muted-foreground hidden sm:inline">
-              vscotr.vercel.app/ <span className="text-foreground font-medium">{profile.username}</span>
-            </span>
-            <span className="text-sm text-muted-foreground sm:hidden">
-              <span className="text-foreground font-medium">{profile.username}</span>
-            </span>
-          </div>
+        <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
+          <Link href="/" className="flex items-center gap-2">
+            <VscoLogo className="w-8 h-8" />
+            <span className="font-semibold">VSCO TR 7</span>
+          </Link>
           <div className="flex items-center gap-1">
             <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
-              <Search className="w-5 h-5" />
+              <Search className="w-6 h-6" />
             </button>
             <button
               className="p-2 hover:bg-accent rounded-full transition-colors"
               onClick={() => setMenuOpen(!menuOpen)}
             >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>
       </header>
 
-      {/* Mobile Menu */}
-      <MobileMenu isOpen={menuOpen} onClose={() => setMenuOpen(false)} currentUserId={currentUserId} />
-
-      {/* Search Modal */}
+      <MobileMenu
+        isOpen={menuOpen}
+        onClose={() => setMenuOpen(false)}
+        currentUserId={currentUserId}
+        currentUsername={currentUsername}
+      />
       <SearchModal isOpen={searchOpen} onClose={() => setSearchOpen(false)} />
+      <EditProfileModal
+        isOpen={editProfileOpen}
+        onClose={() => setEditProfileOpen(false)}
+        currentProfile={profile}
+      />
+      <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-      {/* Profile Section */}
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex items-start gap-4 mb-6">
+        <div className="flex flex-col md:flex-row gap-8 mb-12">
           {/* Avatar */}
-          <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden flex-shrink-0 bg-muted">
-            {profile.avatar_url ? (
-              <img
-                src={profile.avatar_url || "/placeholder.svg"}
-                alt={profile.display_name || profile.username}
-                className="w-full h-full object-cover"
-              />
-            ) : (
-              <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-muted-foreground">
-                {profile.username[0].toUpperCase()}
-              </div>
-            )}
+          <div className="flex-shrink-0 mx-auto md:mx-0">
+            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden relative">
+              {profile.avatar_url ? (
+                <VscoImage
+                  src={profile.avatar_url}
+                  alt={profile.display_name || profile.username}
+                  className="w-full h-full"
+                />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-muted-foreground bg-muted">
+                  {profile.username[0].toUpperCase()}
+                </div>
+              )}
+            </div>
           </div>
 
           {/* Profile Info */}
-          <div className="flex-1 min-w-0">
-            <h1 className="text-2xl md:text-3xl font-semibold mb-2">{profile.username}</h1>
-            {profile.member_badge && (
-              <span className="inline-block px-3 py-1 bg-foreground text-background text-xs font-medium uppercase tracking-wider mb-2">
-                {profile.member_badge}
-              </span>
-            )}
-            {isOwnProfile && (
-              <div className="flex gap-4 text-sm text-muted-foreground mt-2">
-                <button className="hover:text-foreground">
-                  <span className="font-semibold text-foreground">{followingCount}</span> Takip Edilen
+          <div className="flex-1 text-center md:text-left">
+            <h1 className="text-2xl font-light mb-1">{profile.display_name || profile.username}</h1>
+            <p className="text-sm text-muted-foreground mb-4">@{profile.username}</p>
+            {profile.bio && <p className="text-sm whitespace-pre-wrap mb-4 max-w-md mx-auto md:mx-0">{profile.bio}</p>}
+
+            {isOwner ? (
+              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                <button
+                  onClick={() => setEditProfileOpen(true)}
+                  className="px-6 py-1.5 border border-border text-sm font-medium hover:bg-accent transition-colors uppercase tracking-wider"
+                >
+                  Profili Düzenle
                 </button>
-                <button className="hover:text-foreground">
-                  <span className="font-semibold text-foreground">{followersCount}</span> Takipçi
+                <button
+                  onClick={() => {
+                    const url = window.location.href;
+                    navigator.clipboard.writeText(url);
+                    alert("Profil linki kopyalandı!");
+                  }}
+                  className="p-2 border border-border hover:bg-accent transition-colors rounded-full"
+                >
+                  <Share2 className="w-4 h-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+                <button
+                  onClick={handleFollow}
+                  className={`px-8 py-1.5 text-sm font-medium transition-colors uppercase tracking-wider ${isFollowing
+                      ? "border border-border hover:bg-accent"
+                      : "bg-foreground text-background hover:opacity-90"
+                    }`}
+                >
+                  {isFollowing ? "Takip Ediliyor" : "Takip Et"}
+                </button>
+                <button
+                  onClick={() => {
+                    const url = window.location.href;
+                    navigator.clipboard.writeText(url);
+                    alert("Profil linki kopyalandı!");
+                  }}
+                  className="p-2 border border-border hover:bg-accent transition-colors rounded-full"
+                >
+                  <Share2 className="w-4 h-4" />
                 </button>
               </div>
             )}
           </div>
         </div>
 
-        {/* Bio */}
-        {profile.bio && <p className="text-sm mb-4 whitespace-pre-wrap">{profile.bio}</p>}
-
-        {/* Location & Links */}
-        {(profile.location || links.length > 0) && (
-          <div className="flex flex-wrap items-center gap-4 mb-6 text-sm">
-            {profile.location && (
-              <span className="flex items-center gap-1 text-muted-foreground">
-                <MapPin className="w-4 h-4" />
-                {profile.location}
-              </span>
-            )}
-            {links.map((link) => (
-              <a
-                key={link.id}
-                href={link.url.startsWith("http") ? link.url : `https://${link.url}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="flex items-center gap-1 text-primary hover:underline"
-              >
-                <LinkIcon className="w-4 h-4" />
-                {link.label || link.url.replace(/https?:\/\//, "").split("/")[0]}
-              </a>
-            ))}
-          </div>
-        )}
-
-        {/* Follow Button */}
-        {!isOwnProfile && (
-          <div className="flex items-center gap-3 mb-6">
-            <button
-              onClick={handleFollow}
-              disabled={followLoading}
-              className={`px-6 py-2 text-sm font-medium transition-colors ${
-                isFollowing
-                  ? "bg-muted text-foreground hover:bg-muted/80"
-                  : "bg-foreground text-background hover:opacity-90"
-              }`}
-            >
-              {followLoading ? "..." : isFollowing ? "TAKİP EDİLİYOR" : "TAKİP ET"}
-            </button>
-          </div>
-        )}
-
-        {/* Edit Profile Button for own profile */}
-        {isOwnProfile && (
-          <div className="mb-6 flex gap-3">
-            <Link
-              href="/ayarlar"
-              className="inline-block px-6 py-2 text-sm font-medium border border-border hover:bg-accent transition-colors"
-            >
-              Profili Düzenle
-            </Link>
-            <button
-              onClick={handleShare}
-              className="p-2 border border-border hover:bg-accent transition-colors rounded"
-              title="Profil linkini paylaş"
-            >
-              <Share2 className="w-4 h-4" />
-            </button>
-          </div>
-        )}
-
         {/* Tabs */}
-        <div className="border-b border-border mb-4">
-          <div className="flex gap-8">
-            <button
-              onClick={() => setActiveTab("recent")}
-              className={`pb-3 text-xs font-medium uppercase tracking-wider transition-colors relative ${
-                activeTab === "recent" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+        <div className="flex border-b border-border mb-6">
+          <button
+            onClick={() => setActiveTab("posts")}
+            className={`flex-1 pb-3 text-sm font-medium uppercase tracking-wider transition-colors ${activeTab === "posts" ? "border-b-2 border-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
-            >
-              Son Paylaşımlar
-              {activeTab === "recent" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
-            </button>
-            <button
-              onClick={() => setActiveTab("reposts")}
-              className={`pb-3 text-xs font-medium uppercase tracking-wider transition-colors relative ${
-                activeTab === "reposts" ? "text-foreground" : "text-muted-foreground hover:text-foreground"
+          >
+            <div className="flex items-center justify-center gap-2">
+              <Grid className="w-4 h-4" />
+              <span>Gönderiler</span>
+            </div>
+          </button>
+          <button
+            onClick={() => setActiveTab("reposts")}
+            className={`flex-1 pb-3 text-sm font-medium uppercase tracking-wider transition-colors ${activeTab === "reposts" ? "border-b-2 border-foreground" : "text-muted-foreground hover:text-foreground"
               }`}
-            >
-              Repostlar
-              {activeTab === "reposts" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
-            </button>
-          </div>
+          >
+            <div className="flex items-center justify-center gap-2">
+              <RotateCcw className="w-4 h-4" />
+              <span>Koleksiyon</span>
+            </div>
+          </button>
         </div>
 
-        {/* Photo Grid - Masonry style with actual aspect ratios */}
-        {currentPosts.length > 0 ? (
-          <div className="grid grid-cols-3 gap-1">
-            {isOwnProfile && activeTab === "recent" && (
-              <Link
-                href="/olustur"
-                className="col-span-3 w-full aspect-[3/1] bg-muted hover:bg-accent transition-colors flex items-center justify-center border-2 border-dashed border-border rounded mb-1"
-              >
-                <div className="text-center">
-                  <Plus className="w-8 h-8 mx-auto mb-2 text-muted-foreground" />
-                  <span className="text-sm text-muted-foreground">Yeni Gönderi</span>
+        {/* Posts Grid */}
+        <div className="columns-2 md:columns-3 gap-1 space-y-1">
+          {currentPosts.map((post, index) => (
+            <button
+              key={post.id}
+              onClick={() => setSelectedPostIndex(index)}
+              className="block w-full overflow-hidden break-inside-avoid relative group"
+            >
+              <VscoImage
+                src={post.image_url || "/placeholder.svg"}
+                alt={post.caption || ""}
+                aspectRatio={post.aspect_ratio || 1}
+                className="w-full h-full"
+              />
+              <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+              {activeTab === "reposts" && (
+                <div className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full">
+                  <RotateCcw className="w-3 h-3" />
                 </div>
-              </Link>
-            )}
-            <div className="col-span-3 columns-2 md:columns-3 gap-1 space-y-1">
-              {currentPosts.map((post, index) => (
-                <button
-                  key={post.id}
-                  onClick={() => setSelectedPostIndex(index)}
-                  className="block w-full overflow-hidden break-inside-avoid"
-                >
-                  <img
-                    src={post.image_url || "/placeholder.svg"}
-                    alt={post.caption || ""}
-                    className="w-full h-auto object-cover hover:opacity-90 transition-opacity"
-                    style={{
-                      aspectRatio: post.aspect_ratio || 1,
-                    }}
-                    loading="lazy"
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-        ) : (
-          <div className="py-16 text-center">
-            <p className="text-muted-foreground mb-4">
-              {activeTab === "recent" ? "Henüz paylaşım yok" : "Henüz repost yok"}
+              )}
+            </button>
+          ))}
+        </div>
+
+        {currentPosts.length === 0 && (
+          <div className="py-16 text-center text-muted-foreground">
+            <p>
+              {activeTab === "posts"
+                ? "Henüz hiç gönderi yok"
+                : "Henüz hiç yeniden paylaşım yok"}
             </p>
-            {isOwnProfile && activeTab === "recent" && (
-              <Link href="/olustur">
-                <Button>
-                  <Plus className="w-4 h-4 mr-2" />
-                  Gönderi Ekle
-                </Button>
-              </Link>
-            )}
           </div>
         )}
       </main>
 
-      {/* Post Modal */}
+      {/* Post Detail Modal */}
       {selectedPost && selectedPostIndex !== null && (
         <div
           className="fixed inset-0 z-50 bg-background flex flex-col"
@@ -545,57 +403,30 @@ export function ProfileView({
           onTouchEnd={onTouchEnd}
         >
           {/* Modal Header */}
-          <div className="flex items-center justify-between h-14 px-4 border-b border-border">
-            {isOwnProfile && activeTab === "recent" && (
-              <div className="relative">
-                <button onClick={() => setShowPostMenu(!showPostMenu)} className="p-2 hover:bg-accent rounded-full">
-                  <MoreVertical className="w-5 h-5" />
-                </button>
-                {showPostMenu && (
-                  <div className="absolute top-full left-0 mt-1 bg-background border border-border rounded-lg shadow-lg min-w-[150px] z-50">
-                    <button
-                      onClick={() => {
-                        router.push(`/ayarlar`)
-                        setShowPostMenu(false)
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-accent flex items-center gap-2"
-                    >
-                      <Edit className="w-4 h-4" />
-                      Düzenle
-                    </button>
-                    <button
-                      onClick={() => {
-                        setPostToDelete(selectedPost.id)
-                        setDeleteConfirmOpen(true)
-                        setShowPostMenu(false)
-                      }}
-                      className="w-full px-4 py-2 text-left text-sm hover:bg-accent flex items-center gap-2 text-red-500"
-                    >
-                      <Trash2 className="w-4 h-4" />
-                      Sil
-                    </button>
-                  </div>
-                )}
-              </div>
-            )}
-            <div className="flex-1" />
+          <div className="flex items-center justify-end h-14 px-4 border-b border-border flex-shrink-0">
             <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full">
               <X className="w-6 h-6" />
             </button>
           </div>
 
           {/* Modal Content */}
-          <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative">
-            <img
-              src={selectedPost.image_url || "/placeholder.svg"}
-              alt={selectedPost.caption || ""}
-              className="max-w-full max-h-[70vh] object-contain"
-            />
+          <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
+            <div className="relative w-full h-full max-h-[80vh]">
+              <VscoImage
+                src={selectedPost.image_url || "/placeholder.svg"}
+                alt={selectedPost.caption || ""}
+                layout="fill"
+                objectFit="contain"
+                className="bg-transparent"
+                quality={90}
+                priority
+              />
+            </div>
 
             {selectedPostIndex > 0 && (
               <button
                 onClick={() => navigatePost("prev")}
-                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm"
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
@@ -603,7 +434,7 @@ export function ProfileView({
             {selectedPostIndex < currentPosts.length - 1 && (
               <button
                 onClick={() => navigatePost("next")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
               >
                 <ChevronRight className="w-6 h-6" />
               </button>
@@ -611,33 +442,46 @@ export function ProfileView({
           </div>
 
           {/* Modal Footer */}
-          <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 p-4 md:pb-4 border-t border-border bg-background z-10 mb-16 md:mb-0">
-            <div className="max-w-2xl mx-auto flex items-start justify-between gap-4">
-              <div className="flex-1 min-w-0">
-                <p className="font-medium">{profile.username}</p>
-                {selectedPost.post_date && (
-                  <p className="text-sm text-primary mt-1">{formatDate(selectedPost.post_date)}</p>
-                )}
-                {selectedPost.caption && (
-                  <p className="text-sm text-muted-foreground mt-2 break-words">{selectedPost.caption}</p>
-                )}
+          <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
+            <div className="p-4 flex items-start justify-between gap-4">
+              <div className="flex items-center gap-3 min-w-0 flex-1">
+                <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                  {profile.avatar_url ? (
+                    <VscoImage
+                      src={profile.avatar_url}
+                      alt=""
+                      className="w-full h-full"
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                      {profile.username[0].toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <div className="flex-1 min-w-0">
+                  <p className="font-medium truncate">{profile.username}</p>
+                  {profile.member_badge && (
+                    <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
+                  )}
+                  {selectedPost.caption && (
+                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
+                  )}
+                </div>
               </div>
-              {/* Like & Repost buttons */}
-              {canInteract && (
+
+              {currentUserId && profile.id !== currentUserId && (
                 <div className="flex items-center gap-2 flex-shrink-0">
                   <button
                     onClick={() => handleLike(selectedPost.id)}
-                    className={`p-2 hover:bg-accent rounded-full transition-colors ${
-                      postStates[selectedPost.id]?.liked ? "text-red-500" : ""
-                    }`}
+                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""
+                      }`}
                   >
                     <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
                   </button>
                   <button
                     onClick={() => handleRepost(selectedPost.id)}
-                    className={`p-2 hover:bg-accent rounded-full transition-colors ${
-                      postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
-                    }`}
+                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
+                      }`}
                   >
                     <RotateCcw className="w-5 h-5" />
                   </button>
@@ -648,33 +492,7 @@ export function ProfileView({
         </div>
       )}
 
-      {deleteConfirmOpen && (
-        <div className="fixed inset-0 z-[60] bg-black/50 flex items-center justify-center p-4">
-          <div className="bg-background border border-border rounded-lg p-6 max-w-sm w-full">
-            <h3 className="text-lg font-semibold mb-2">Gönderiyi Sil</h3>
-            <p className="text-sm text-muted-foreground mb-4">Bu gönderiyi silmek istediğinize emin misiniz?</p>
-            <div className="flex gap-3">
-              <Button variant="outline" onClick={() => setDeleteConfirmOpen(false)} className="flex-1">
-                İptal
-              </Button>
-              <Button
-                onClick={() => {
-                  if (postToDelete) {
-                    handleDeletePost(postToDelete)
-                  }
-                  setDeleteConfirmOpen(false)
-                  setSelectedPostIndex(null)
-                }}
-                className="flex-1 bg-red-500 hover:bg-red-600"
-              >
-                Sil
-              </Button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      <MobileTabBar currentUserId={currentUserId} username={profile.username} />
+      <MobileTabBar currentUserId={currentUserId} username={currentUsername} />
     </div>
   )
 }

@@ -1,120 +1,188 @@
 "use client"
 
-import { useState, useEffect, useMemo } from "react"
-import { Search, X } from "lucide-react"
+import { useState, useEffect } from "react"
+import { Search, Loader2 } from "lucide-react"
 import { createClient } from "@/lib/supabase/client"
 import Link from "next/link"
-import { Input } from "@/components/ui/input"
+import { useDebounce } from "@/hooks/use-debounce"
+import { VscoImage } from "@/components/vsco-image"
 
 interface SearchModalProps {
   isOpen: boolean
   onClose: () => void
 }
 
-interface Profile {
-  id: string
-  username: string
-  display_name: string | null
-  avatar_url: string | null
-  member_badge: string | null
+interface SearchResult {
+  profiles: {
+    id: string
+    username: string
+    display_name: string | null
+    avatar_url: string | null
+  }[]
+  posts: {
+    id: string
+    image_url: string
+    caption: string | null
+    aspect_ratio: number
+    profiles: {
+      username: string
+    }
+  }[]
 }
 
 export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [query, setQuery] = useState("")
-  const [results, setResults] = useState<Profile[]>([])
-  const [isLoading, setIsLoading] = useState(false)
+  const [results, setResults] = useState<SearchResult>({ profiles: [], posts: [] })
+  const [loading, setLoading] = useState(false)
+  const debouncedQuery = useDebounce(query, 500)
+  const supabase = createClient()
 
-  const supabase = useMemo(() => createClient(), [])
-
-  // Arama yap
   useEffect(() => {
-    if (!query.trim()) {
-      setResults([])
-      return
+    if (!isOpen) {
+      setQuery("")
+      setResults({ profiles: [], posts: [] })
     }
+  }, [isOpen])
 
-    const searchUsers = async () => {
-      setIsLoading(true)
-      const { data } = await supabase
-        .from("profiles")
-        .select("id, username, display_name, avatar_url, member_badge")
-        .or(`username.ilike.%${query}%,display_name.ilike.%${query}%`)
-        .limit(20)
-
-      if (data) {
-        setResults(data)
+  useEffect(() => {
+    const search = async () => {
+      if (!debouncedQuery.trim()) {
+        setResults({ profiles: [], posts: [] })
+        return
       }
-      setIsLoading(false)
+
+      setLoading(true)
+      try {
+        // Search profiles
+        const { data: profiles } = await supabase
+          .from("profiles")
+          .select("id, username, display_name, avatar_url")
+          .ilike("username", `%${debouncedQuery}%`)
+          .limit(5)
+
+        // Search posts (caption search)
+        const { data: posts } = await supabase
+          .from("posts")
+          .select(`
+            id,
+            image_url,
+            caption,
+            aspect_ratio,
+            profiles (
+              username
+            )
+          `)
+          .ilike("caption", `%${debouncedQuery}%`)
+          .limit(9)
+
+        setResults({
+          profiles: profiles || [],
+          posts: (posts as any[]) || [],
+        })
+      } catch (error) {
+        console.error("Search error:", error)
+      } finally {
+        setLoading(false)
+      }
     }
 
-    searchUsers()
-  }, [query, supabase])
+    search()
+  }, [debouncedQuery])
 
   if (!isOpen) return null
 
   return (
-    <div className="fixed inset-0 z-50 bg-background">
-      {/* Header */}
-      <div className="flex items-center gap-3 h-14 px-4 border-b border-border">
-        <Search className="w-5 h-5 text-muted-foreground flex-shrink-0" />
-        <Input
-          type="text"
-          placeholder="Kullanıcı ara..."
-          value={query}
-          onChange={(e) => setQuery(e.target.value)}
-          className="flex-1 border-0 focus-visible:ring-0 px-0"
-          autoFocus
-        />
-        <button onClick={onClose} className="p-2 hover:bg-accent rounded-full">
-          <X className="w-5 h-5" />
-        </button>
-      </div>
-
-      {/* Results */}
-      <div className="p-4 max-w-2xl mx-auto">
-        {isLoading ? (
-          <p className="text-center text-muted-foreground py-8">Aranıyor...</p>
-        ) : results.length > 0 ? (
-          <div className="space-y-2">
-            {results.map((user) => (
-              <Link
-                key={user.id}
-                href={`/${user.username}`}
-                onClick={onClose}
-                className="flex items-center gap-3 p-3 hover:bg-accent rounded-lg transition-colors"
-              >
-                <div className="w-12 h-12 rounded-full overflow-hidden bg-muted flex-shrink-0">
-                  {user.avatar_url ? (
-                    <img
-                      src={user.avatar_url || "/placeholder.svg"}
-                      alt={user.username}
-                      className="w-full h-full object-cover"
-                    />
-                  ) : (
-                    <div className="w-full h-full flex items-center justify-center text-lg font-semibold text-muted-foreground">
-                      {user.username[0].toUpperCase()}
-                    </div>
-                  )}
-                </div>
-                <div className="flex-1 min-w-0">
-                  <p className="font-medium truncate">{user.username}</p>
-                  {user.display_name && user.display_name !== user.username && (
-                    <p className="text-sm text-muted-foreground truncate">{user.display_name}</p>
-                  )}
-                </div>
-                {user.member_badge && (
-                  <span className="px-2 py-1 bg-foreground text-background text-xs font-medium uppercase">
-                    {user.member_badge}
-                  </span>
-                )}
-              </Link>
-            ))}
+    <div className="fixed inset-0 z-[60] bg-background">
+      <div className="max-w-4xl mx-auto h-full flex flex-col">
+        <div className="flex items-center gap-4 p-4 border-b border-border">
+          <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-muted-foreground" />
+            <input
+              autoFocus
+              value={query}
+              onChange={(e) => setQuery(e.target.value)}
+              placeholder="Ara..."
+              className="w-full pl-9 pr-4 py-2 bg-muted rounded-full focus:outline-none focus:ring-1 focus:ring-foreground"
+            />
           </div>
-        ) : query.trim() ? (
-          <p className="text-center text-muted-foreground py-8">Kullanıcı bulunamadı</p>
-        ) : (
-          <p className="text-center text-muted-foreground py-8">Aramaya başlamak için yazmaya başla</p>
-        )}
+          <button onClick={onClose} className="p-2 hover:bg-accent rounded-full text-sm font-medium">
+            İptal
+          </button>
+        </div>
+
+        <div className="flex-1 overflow-auto p-4">
+          {loading ? (
+            <div className="flex justify-center p-8">
+              <Loader2 className="w-6 h-6 animate-spin text-muted-foreground" />
+            </div>
+          ) : (
+            <div className="space-y-8">
+              {results.profiles.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Kullanıcılar</h3>
+                  <div className="space-y-2">
+                    {results.profiles.map((profile) => (
+                      <Link
+                        key={profile.id}
+                        href={`/${profile.username}`}
+                        className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
+                        onClick={onClose}
+                      >
+                        <div className="w-12 h-12 rounded-full overflow-hidden relative">
+                          {profile.avatar_url ? (
+                            <VscoImage
+                              src={profile.avatar_url || "/placeholder.svg"}
+                              alt=""
+                              className="w-full h-full"
+                            />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-lg font-semibold text-muted-foreground bg-muted">
+                              {profile.username[0].toUpperCase()}
+                            </div>
+                          )}
+                        </div>
+                        <div>
+                          <p className="font-medium">{profile.display_name || profile.username}</p>
+                          <p className="text-sm text-muted-foreground">@{profile.username}</p>
+                        </div>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {results.posts.length > 0 && (
+                <div className="space-y-4">
+                  <h3 className="font-semibold text-sm text-muted-foreground uppercase tracking-wider">Gönderiler</h3>
+                  <div className="grid grid-cols-3 gap-1">
+                    {results.posts.map((post) => (
+                      <Link
+                        key={post.id}
+                        href={`/${post.profiles.username}`}
+                        className="block aspect-square relative group overflow-hidden bg-muted"
+                        onClick={onClose}
+                      >
+                        <VscoImage
+                          src={post.image_url || "/placeholder.svg"}
+                          alt={post.caption || ""}
+                          aspectRatio={post.aspect_ratio || 1}
+                          className="w-full h-full"
+                        />
+                        <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {!loading && query && results.profiles.length === 0 && results.posts.length === 0 && (
+                <div className="text-center text-muted-foreground py-8">
+                  Sonuç bulunamadı.
+                </div>
+              )}
+            </div>
+          )}
+        </div>
       </div>
     </div>
   )

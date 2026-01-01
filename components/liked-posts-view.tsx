@@ -9,6 +9,7 @@ import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import Link from "next/link"
+import { VscoImage } from "@/components/vsco-image"
 
 interface Post {
   id: string
@@ -127,15 +128,15 @@ export function LikedPostsView({ posts, currentUserId }: LikedPostsViewProps) {
               <button
                 key={post.id}
                 onClick={() => setSelectedPostIndex(index)}
-                className="block w-full break-inside-avoid group relative overflow-hidden"
+                className="block w-full overflow-hidden break-inside-avoid relative group"
               >
-                <img
+                <VscoImage
                   src={post.image_url || "/placeholder.svg"}
                   alt={post.caption || ""}
-                  className="w-full h-auto object-cover group-hover:opacity-90 transition-opacity"
-                  style={{ aspectRatio: post.aspect_ratio || 1 }}
-                  loading="lazy"
+                  aspectRatio={post.aspect_ratio || 1}
+                  className="w-full h-full"
                 />
+                <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                 <div className="absolute bottom-0 left-0 right-0 bg-gradient-to-t from-black/60 to-transparent opacity-0 group-hover:opacity-100 md:opacity-100 transition-opacity p-2">
                   <Link
                     href={`/${post.profiles.username}`}
@@ -184,11 +185,16 @@ export function LikedPostsView({ posts, currentUserId }: LikedPostsViewProps) {
 
           {/* Modal Content */}
           <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0">
-            <img
-              src={selectedPost.image_url || "/placeholder.svg"}
-              alt={selectedPost.caption || ""}
-              className="max-w-full max-h-full object-contain"
-            />
+            <div className="relative w-full h-full max-h-[80vh]">
+              <VscoImage
+                src={selectedPost.image_url || "/placeholder.svg"}
+                alt={selectedPost.caption || ""}
+                layout="fill"
+                objectFit="contain"
+                className="bg-transparent"
+                quality={90}
+              />
+            </div>
 
             {selectedPostIndex > 0 && (
               <button
@@ -215,16 +221,16 @@ export function LikedPostsView({ posts, currentUserId }: LikedPostsViewProps) {
                 href={`/${selectedPost.profiles.username}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity"
               >
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
-                  {selectedPost.profiles.avatar_url ? (
-                    <img
+                <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                  {selectedPost.profiles?.avatar_url ? (
+                    <VscoImage
                       src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
                       alt=""
-                      className="w-full h-full object-cover"
+                      className="w-full h-full"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                      {selectedPost.profiles.username[0].toUpperCase()}
+                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                      {selectedPost.profiles?.username?.[0]?.toUpperCase()}
                     </div>
                   )}
                 </div>

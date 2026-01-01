@@ -5,6 +5,8 @@ import { VscoLogo } from "@/components/vsco-logo"
 import { useEffect, useState, useMemo } from "react"
 import { createClient } from "@/lib/supabase/client"
 
+import { VscoImage } from "@/components/vsco-image"
+
 export function LandingPage() {
   const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
@@ -57,7 +59,7 @@ export function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR 6</span>
+            <span className="font-semibold">VSCO TR 7</span>
           </Link>
           <div className="flex items-center gap-4">
             <Link href="/giris" className="text-sm text-muted-foreground hover:text-foreground transition-colors">
@@ -114,13 +116,13 @@ export function LandingPage() {
                   <button
                     key={post.id}
                     onClick={() => setSelectedPost(post)}
-                    className="aspect-square bg-muted overflow-hidden block"
+                    className="aspect-square block group"
                   >
-                    <img
+                    <VscoImage
                       src={post.image_url || "/placeholder.svg"}
                       alt=""
-                      className="w-full h-full object-cover hover:scale-105 transition-transform duration-500"
-                      loading="lazy"
+                      aspectRatio={post.aspect_ratio || 1}
+                      className="w-full h-full"
                     />
                   </button>
                 ))
@@ -156,27 +158,34 @@ export function LandingPage() {
           className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
           onClick={() => setSelectedPost(null)}
         >
-          <div className="relative max-w-4xl w-full" onClick={(e) => e.stopPropagation()}>
-            <img
-              src={selectedPost.image_url || "/placeholder.svg"}
-              alt={selectedPost.caption || ""}
-              className="w-full h-auto max-h-[80vh] object-contain mx-auto"
-            />
+          <div className="relative max-w-4xl w-full h-full flex flex-col justify-center" onClick={(e) => e.stopPropagation()}>
+            <div className="relative w-full h-[80vh]">
+              <VscoImage
+                src={selectedPost.image_url || "/placeholder.svg"}
+                alt={selectedPost.caption || ""}
+                layout="fill"
+                objectFit="contain"
+                className="bg-transparent"
+                quality={90}
+              />
+            </div>
             {selectedPost.profiles && (
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-black/70 backdrop-blur-sm px-3 py-2 rounded-lg">
+              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-black/70 backdrop-blur-sm px-3 py-2 rounded-lg z-10">
                 {selectedPost.profiles.avatar_url && (
-                  <img
-                    src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
-                    alt=""
-                    className="w-8 h-8 rounded-full object-cover"
-                  />
+                  <div className="w-8 h-8 rounded-full overflow-hidden relative">
+                    <VscoImage
+                      src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
+                      alt=""
+                      className="w-full h-full"
+                    />
+                  </div>
                 )}
                 <span className="text-white text-sm font-medium">{selectedPost.profiles.username}</span>
               </div>
             )}
             <button
               onClick={() => setSelectedPost(null)}
-              className="absolute top-4 right-4 p-2 bg-black/70 backdrop-blur-sm hover:bg-black/90 rounded-full text-white"
+              className="absolute top-4 right-4 p-2 bg-black/70 backdrop-blur-sm hover:bg-black/90 rounded-full text-white z-10"
             >
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />

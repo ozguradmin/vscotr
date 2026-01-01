@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, Menu, X, Heart, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
@@ -11,6 +11,7 @@ import Link from "next/link"
 import { createClient } from "@/lib/supabase/client"
 import { useRouter, usePathname } from "next/navigation"
 import { useCache } from "@/lib/cache-context"
+import { VscoImage } from "@/components/vsco-image"
 
 interface Post {
   id: string
@@ -40,33 +41,15 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
   const [postStates, setPostStates] = useState<
     Record<string, { liked: boolean; reposted: boolean; following: boolean }>
   >({})
-  const [visiblePosts, setVisiblePosts] = useState<Set<string>>(new Set())
 
   const supabase = createClient()
   const router = useRouter()
   const pathname = usePathname()
-  const observerRef = useRef<IntersectionObserver | null>(null)
   const cache = useCache()
   const cacheKey = `discover-states-${currentUserId || 'guest'}`
 
   useEffect(() => {
     window.scrollTo(0, 0)
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const postId = entry.target.getAttribute("data-post-id")
-            if (postId) {
-              setVisiblePosts((prev) => new Set(prev).add(postId))
-            }
-          }
-        })
-      },
-      { rootMargin: "400px" },
-    )
-
-    return () => observerRef.current?.disconnect()
   }, [])
 
   useEffect(() => {
@@ -153,13 +136,6 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     }
   }
 
-  const handleHeaderClick = () => {
-    if (pathname === "/kesfet") {
-      window.scrollTo({ top: 0, behavior: "smooth" })
-      setTimeout(() => router.refresh(), 300)
-    }
-  }
-
   const selectedPost = selectedPostIndex !== null ? posts[selectedPostIndex] : null
 
   const navigatePost = (direction: "prev" | "next") => {
@@ -207,19 +183,13 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedPostIndex, posts.length])
 
-  const observePost = useCallback((node: HTMLElement | null) => {
-    if (node && observerRef.current) {
-      observerRef.current.observe(node)
-    }
-  }, [])
-
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
           <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR 6</span>
+            <span className="font-semibold">VSCO TR 7</span>
           </Link>
           <div className="flex items-center gap-1">
             <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
@@ -248,40 +218,28 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
                 key={post.id}
                 onClick={() => setSelectedPostIndex(index)}
                 className="block w-full break-inside-avoid group relative overflow-hidden"
-                ref={observePost}
-                data-post-id={post.id}
               >
-                {visiblePosts.has(post.id) ? (
-                  <img
-                    src={post.image_url || "/placeholder.svg"}
-                    alt={post.caption || ""}
-                    className="w-full h-auto object-cover group-hover:opacity-90 transition-opacity"
-                    style={{ aspectRatio: post.aspect_ratio || 1 }}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <div
-                    className="w-full bg-muted animate-pulse"
-                    style={{ aspectRatio: post.aspect_ratio || 1, minHeight: "150px" }}
-                  />
-                )}
+                <VscoImage
+                  src={post.image_url || "/placeholder.svg"}
+                  alt={post.caption || ""}
+                  aspectRatio={post.aspect_ratio || 1}
+                  className="w-full h-full"
+                />
                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 md:opacity-100 transition-opacity">
                   <Link
                     href={`/${post.profiles.username}`}
                     className="flex items-center gap-2"
                     onClick={(e) => e.stopPropagation()}
                   >
-                    <div className="w-6 h-6 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                    <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 relative">
                       {post.profiles.avatar_url ? (
-                        <img
+                        <VscoImage
                           src={post.profiles.avatar_url || "/placeholder.svg"}
                           alt=""
-                          className="w-full h-full object-cover"
-                          loading="lazy"
+                          className="w-full h-full"
                         />
                       ) : (
-                        <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-white">
+                        <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-white bg-muted">
                           {post.profiles.username[0].toUpperCase()}
                         </div>
                       )}
@@ -314,17 +272,23 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
           </div>
 
           {/* Modal Content */}
-          <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0">
-            <img
-              src={selectedPost.image_url || "/placeholder.svg"}
-              alt={selectedPost.caption || ""}
-              className="max-w-full max-h-full object-contain"
-            />
+          <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
+            <div className="relative w-full h-full max-h-[80vh]">
+              <VscoImage
+                src={selectedPost.image_url || "/placeholder.svg"}
+                alt={selectedPost.caption || ""}
+                layout="fill"
+                objectFit="contain"
+                className="bg-transparent"
+                quality={90}
+                priority
+              />
+            </div>
 
             {selectedPostIndex > 0 && (
               <button
                 onClick={() => navigatePost("prev")}
-                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm"
+                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
               >
                 <ChevronLeft className="w-6 h-6" />
               </button>
@@ -332,7 +296,7 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
             {selectedPostIndex < posts.length - 1 && (
               <button
                 onClick={() => navigatePost("next")}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
               >
                 <ChevronRight className="w-6 h-6" />
               </button>
@@ -346,16 +310,15 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
                 href={`/${selectedPost.profiles.username}`}
                 className="flex items-center gap-3 hover:opacity-80 transition-opacity min-w-0 flex-1"
               >
-                <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
                   {selectedPost.profiles.avatar_url ? (
-                    <img
+                    <VscoImage
                       src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
                       alt=""
-                      className="w-full h-full object-cover"
-                      loading="lazy"
+                      className="w-full h-full"
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
                       {selectedPost.profiles.username[0].toUpperCase()}
                     </div>
                   )}
@@ -399,3 +362,4 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     </div>
   )
 }
+

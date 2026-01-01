@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef, useCallback } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, Menu, X, Heart, RotateCcw } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
@@ -10,6 +10,7 @@ import { createClient } from "@/lib/supabase/client"
 import { useRouter, usePathname } from "next/navigation"
 import { useCache } from "@/lib/cache-context"
 import Link from "next/link"
+import { VscoImage } from "@/components/vsco-image"
 
 interface Post {
   id: string
@@ -36,33 +37,15 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
   const [postStates, setPostStates] = useState<
     Record<string, { liked: boolean; reposted: boolean; likesCount: number }>
   >({})
-  const [visiblePosts, setVisiblePosts] = useState<Set<string>>(new Set())
   const router = useRouter()
   const pathname = usePathname()
   const mainRef = useRef<HTMLDivElement>(null)
   const supabase = createClient()
-  const observerRef = useRef<IntersectionObserver | null>(null)
   const cache = useCache()
   const cacheKey = `feed-states-${currentUserId}`
 
   useEffect(() => {
     window.scrollTo(0, 0)
-
-    observerRef.current = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          if (entry.isIntersecting) {
-            const postId = entry.target.getAttribute("data-post-id")
-            if (postId) {
-              setVisiblePosts((prev) => new Set(prev).add(postId))
-            }
-          }
-        })
-      },
-      { rootMargin: "200px" },
-    )
-
-    return () => observerRef.current?.disconnect()
   }, [])
 
   useEffect(() => {
@@ -174,19 +157,13 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
     })
   }
 
-  const observePost = useCallback((node: HTMLElement | null) => {
-    if (node && observerRef.current) {
-      observerRef.current.observe(node)
-    }
-  }, [])
-
   return (
     <div className="min-h-screen bg-background pb-16 md:pb-0">
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
           <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR 6</span>
+            <span className="font-semibold">VSCO TR 7</span>
           </Link>
           <div className="flex items-center gap-1">
             <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
@@ -216,33 +193,26 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
         {posts.length > 0 ? (
           <div className="divide-y divide-border">
             {posts.map((post) => (
-              <article key={post.id} className="pb-6" ref={observePost} data-post-id={post.id}>
-                {visiblePosts.has(post.id) ? (
-                  <img
-                    src={post.image_url || "/placeholder.svg"}
-                    alt={post.caption || ""}
-                    className="w-full h-auto"
-                    style={{ aspectRatio: post.aspect_ratio || 1 }}
-                    loading="lazy"
-                    decoding="async"
-                  />
-                ) : (
-                  <div className="w-full bg-muted animate-pulse" style={{ aspectRatio: post.aspect_ratio || 1 }} />
-                )}
+              <article key={post.id} className="pb-6">
+                <VscoImage
+                  src={post.image_url || "/placeholder.svg"}
+                  alt={post.caption || ""}
+                  aspectRatio={post.aspect_ratio || 1}
+                  className="w-full h-full"
+                />
 
                 <div className="px-4 pt-3 pb-4 md:pb-0">
                   <div className="flex items-center justify-between">
                     <Link href={`/${post.profiles.username}`} className="flex items-center gap-2">
-                      <div className="w-8 h-8 rounded-full overflow-hidden bg-muted flex-shrink-0">
+                      <div className="w-8 h-8 rounded-full overflow-hidden flex-shrink-0 relative">
                         {post.profiles.avatar_url ? (
-                          <img
+                          <VscoImage
                             src={post.profiles.avatar_url || "/placeholder.svg"}
                             alt=""
-                            className="w-full h-full object-cover"
-                            loading="lazy"
+                            className="w-full h-full"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                          <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
                             {post.profiles.username[0].toUpperCase()}
                           </div>
                         )}
@@ -297,3 +267,4 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
     </div>
   )
 }
+

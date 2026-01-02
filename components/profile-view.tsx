@@ -36,6 +36,15 @@ interface Post {
     caption: string | null
     aspect_ratio: number
     created_at: string
+    user_id?: string // original post owner id
+    // Repost-specific fields
+    isRepost?: boolean
+    repost_id?: string // the repost document id (for removing repost)
+    original_owner?: {
+        id: string
+        username: string
+        avatar_url?: string | null
+    }
 }
 
 interface Repost {
@@ -236,12 +245,39 @@ export function ProfileView({
                         [Query.equal("$id", postIds)]
                     )
 
+                    // Get unique owner IDs from posts
+                    const ownerIds = [...new Set(relatedPostsRes.documents.map(p => p.user_id))]
+                    let ownersMap: Record<string, any> = {}
+
+                    if (ownerIds.length > 0) {
+                        const ownersRes = await databases.listDocuments(
+                            APPWRITE_CONFIG.DATABASE_ID,
+                            APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                            [Query.equal("$id", ownerIds)]
+                        )
+                        ownersMap = ownersRes.documents.reduce((acc, p) => ({ ...acc, [p.$id]: p }), {})
+                    }
+
+                    // Create repost-to-post mapping for repost_id
+                    const repostToPostMap = repostsResponse.documents.reduce((acc, r) => ({
+                        ...acc,
+                        [r.post_id]: r.$id
+                    }), {} as Record<string, string>)
+
                     const formattedReposts: Post[] = relatedPostsRes.documents.map(doc => ({
                         id: doc.$id,
                         image_url: doc.image_url,
                         caption: doc.caption,
                         aspect_ratio: doc.aspect_ratio || 1,
-                        created_at: doc.created_at || doc.$createdAt
+                        created_at: doc.created_at || doc.$createdAt,
+                        user_id: doc.user_id,
+                        isRepost: true,
+                        repost_id: repostToPostMap[doc.$id],
+                        original_owner: ownersMap[doc.user_id] ? {
+                            id: ownersMap[doc.user_id].$id,
+                            username: ownersMap[doc.user_id].username,
+                            avatar_url: ownersMap[doc.user_id].avatar_url
+                        } : undefined
                     }))
                     setClientReposts(formattedReposts)
                 } else {
@@ -763,33 +799,85 @@ export function ProfileView({
 
                     <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
                         <div className="p-4 flex items-start justify-between gap-4">
-                            <div className="flex items-center gap-3 min-w-0 flex-1">
-                                <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
-                                    {profile.avatar_url ? (
-                                        <VscoImage
-                                            src={profile.avatar_url}
-                                            alt=""
-                                            className="w-full h-full"
-                                        />
-                                    ) : (
-                                        <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
-                                            {profile.username[0].toUpperCase()}
-                                        </div>
-                                    )}
+                            {/* Show original owner for reposts, profile for own posts */}
+                            {selectedPost.isRepost && selectedPost.original_owner ? (
+                                <Link href={`/${selectedPost.original_owner.username}`} className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                                        {selectedPost.original_owner.avatar_url ? (
+                                            <img
+                                                src={selectedPost.original_owner.avatar_url}
+                                                alt=""
+                                                className="w-full h-full object-cover"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                                                {selectedPost.original_owner.username[0].toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium truncate">{selectedPost.original_owner.username}</p>
+                                        <p className="text-xs text-muted-foreground">Repostladın</p>
+                                        {selectedPost.caption && (
+                                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
+                                        )}
+                                    </div>
+                                </Link>
+                            ) : (
+                                <div className="flex items-center gap-3 min-w-0 flex-1">
+                                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                                        {profile.avatar_url ? (
+                                            <VscoImage
+                                                src={profile.avatar_url}
+                                                alt=""
+                                                className="w-full h-full"
+                                            />
+                                        ) : (
+                                            <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                                                {profile.username[0].toUpperCase()}
+                                            </div>
+                                        )}
+                                    </div>
+                                    <div className="flex-1 min-w-0">
+                                        <p className="font-medium truncate">{profile.username}</p>
+                                        {profile.member_badge && (
+                                            <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
+                                        )}
+                                        {selectedPost.caption && (
+                                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
+                                        )}
+                                    </div>
                                 </div>
-                                <div className="flex-1 min-w-0">
-                                    <p className="font-medium truncate">{profile.username}</p>
-                                    {profile.member_badge && (
-                                        <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
-                                    )}
-                                    {selectedPost.caption && (
-                                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
-                                    )}
-                                </div>
-                            </div>
+                            )}
 
-                            {/* Action buttons: 3-dot for own posts, like/repost for others */}
-                            {isOwnProfile ? (
+                            {/* Action buttons based on post type */}
+                            {isOwnProfile && selectedPost.isRepost && selectedPost.repost_id ? (
+                                // Repost: show "remove repost" button (deletes from reposts table, not posts)
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm("Bu repostu kaldırmak istediğinizden emin misiniz?")) return
+                                            try {
+                                                await databases.deleteDocument(
+                                                    APPWRITE_CONFIG.DATABASE_ID,
+                                                    APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                                                    selectedPost.repost_id!
+                                                )
+                                                setSelectedPostIndex(null)
+                                                window.location.reload()
+                                            } catch (e) {
+                                                console.error("Remove repost error", e)
+                                                alert("Repost kaldırılırken hata oluştu")
+                                            }
+                                        }}
+                                        className="p-2 hover:bg-orange-100 rounded-full transition-colors text-orange-500"
+                                        title="Repostu Kaldır"
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            ) : isOwnProfile ? (
+                                // Own post: show delete button
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     <button
                                         onClick={async () => {

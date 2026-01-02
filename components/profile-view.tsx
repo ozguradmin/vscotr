@@ -103,8 +103,8 @@ export function ProfileView({
             try {
                 console.log("[Profile] 1. Starting fetch for:", profile.id)
 
-                // 1. Fetch Posts via Optimized RPC (Single Request)
-                console.log("[Profile] 2. Querying posts and profile via RPC...")
+                // 1. Fetch Posts via Simple RPC (Step 9 - Fast & Reliable)
+                console.log("[Profile] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
                     .rpc("get_profile_posts", {
                         p_user_id: profile.id,
@@ -117,31 +117,30 @@ export function ProfileView({
                 if (postsError) throw postsError
 
                 if (!postsData || postsData.length === 0) {
-                    setPosts([])
+                    setClientPosts([])
                     setIsLoading(false)
                     return
                 }
 
-                // 2. Map flat RPC data to nested structure
+                // 2. Map flat RPC data to nested structure using the PROP profile
+                // This is instant because we already have the profile data!
                 const formattedPosts: Post[] = postsData.map((p: any) => ({
                     id: p.id,
                     image_url: p.image_url,
                     caption: p.caption,
-                    aspect_ratio: p.aspect_ratio || 1, // Fallback
+                    aspect_ratio: p.aspect_ratio || 1,
                     created_at: p.created_at,
-                    user_id: p.user_id, // Keep for reference
+                    user_id: p.user_id,
                     order_index: p.order_index,
-                    profiles: { // RPC now joins this for us!
-                        id: p.user_id,
-                        username: p.username || profile.username || "unknown", // Fallback to prop
-                        avatar_url: p.avatar_url || profile.avatar_url,
-                        member_badge: p.member_badge || profile.member_badge
-                    }
-                }))
+                    profiles: profile // Use the prop directly! No fetch needed.
+                })) as unknown as Post[]
+                // Note: Casting to unknown then Post because 'profile' prop type might slightly differ from 'Post.profiles' 
+                // if strict types are checked, but they should match in practice (id, username, avatar_url, member_badge).
 
-                setPosts(formattedPosts)
+                setClientPosts(formattedPosts)
+                setIsLoading(false) // Show immediately!
 
-                // Fetch reposts separately (still needed as it's a different table/relation)
+                // 3. Fetch Reposts (Standard Query)
                 console.log("[Profile] 4. Querying reposts...")
                 const { data: repostsData, error: repostsError } = await supabase
                     .from("reposts")
@@ -160,13 +159,12 @@ export function ProfileView({
 
                 if (repostsData) {
                     const formattedReposts = repostsData
-                        .filter(r => r.posts) // Filter out null posts
+                        .filter(r => r.posts)
                         .map(r => ({
                             ...r.posts,
-                            // Ensure nested structure matches Post interface
                             profiles: r.posts.profiles || { id: "unknown", username: "unknown", avatar_url: null, member_badge: null }
-                        })) as Post[]
-                    setReposts(formattedReposts)
+                        })) as unknown as Post[]
+                    setClientReposts(formattedReposts)
                 }
             } catch (err: any) {
                 console.error("[Profile] CRITICAL ERROR during fetch:", err)

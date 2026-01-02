@@ -516,7 +516,7 @@ export function ProfileView({
                                 priority
                             />
                         </div>
-                        </div>
+
 
                         {selectedPostIndex > 0 && (
                             <button
@@ -584,10 +584,10 @@ export function ProfileView({
                         </div>
                     </div>
                 </div>
-    )
-}
+            )
+            }
 
-<MobileTabBar currentUserId={currentUserId} username={currentUsername} />
+            <MobileTabBar currentUserId={currentUserId} username={currentUsername} />
         </div >
     )
 }

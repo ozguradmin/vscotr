@@ -1,11 +1,11 @@
-```typescript
 "use client"
 
-import type React from "react" // Changed from "use client" to "react" as it's a type import
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { useRouter } from "next/navigation"
 import { databases, storage, account, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { ID, Query } from "appwrite"
+import { VscoImage } from "@/components/vsco-image"
 import { ID, Query } from "appwrite"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -180,7 +180,7 @@ export function SettingsView({
 
       showToast("Profil başarıyla kaydedildi")
       setTimeout(() => {
-        router.push(`/ ${ formData.username } `)
+        router.push(`/${formData.username}`)
         router.refresh()
       }, 1000)
     } catch (error: any) {
@@ -269,7 +269,7 @@ export function SettingsView({
   const [accountSuccess, setAccountSuccess] = useState<string | null>(null)
 
   const addLink = () => {
-    setLinks([...links, { id: `new- ${ Date.now() } `, label: "", url: "", order_index: links.length }])
+    setLinks([...links, { id: `new- ${Date.now()} `, label: "", url: "", order_index: links.length }])
   }
 
   const removeLink = (id: string) => {
@@ -369,7 +369,7 @@ export function SettingsView({
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
-          <Link href={profile?.username ? `/ ${ profile.username } ` : "/"} className="flex items-center gap-2">
+          <Link href={profile?.username ? `/ ${profile.username} ` : "/"} className="flex items-center gap-2">
             <ArrowLeft className="w-5 h-5" />
             <VscoLogo className="w-8 h-8" />
           </Link>
@@ -402,9 +402,8 @@ export function SettingsView({
         <div className="flex gap-4 border-b border-border mb-6 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${
-  activeTab === "profile" ? "text-foreground" : "text-muted-foreground"
-} `}
+            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${activeTab === "profile" ? "text-foreground" : "text-muted-foreground"
+              } `}
           >
             <User className="w-4 h-4" />
             Profil
@@ -412,18 +411,16 @@ export function SettingsView({
           </button>
           <button
             onClick={() => setActiveTab("posts")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap ${
-  activeTab === "posts" ? "text-foreground" : "text-muted-foreground"
-} `}
+            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap ${activeTab === "posts" ? "text-foreground" : "text-muted-foreground"
+              } `}
           >
             Gönderiler
             {activeTab === "posts" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("reposts")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${
-  activeTab === "reposts" ? "text-foreground" : "text-muted-foreground"
-} `}
+            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${activeTab === "reposts" ? "text-foreground" : "text-muted-foreground"
+              } `}
           >
             <RotateCcw className="w-4 h-4" />
             Repostlar
@@ -431,9 +428,8 @@ export function SettingsView({
           </button>
           <button
             onClick={() => setActiveTab("account")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${
-  activeTab === "account" ? "text-foreground" : "text-muted-foreground"
-} `}
+            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${activeTab === "account" ? "text-foreground" : "text-muted-foreground"
+              } `}
           >
             <Key className="w-4 h-4" />
             Hesap

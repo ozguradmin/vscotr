@@ -20,7 +20,7 @@ export default function KayitPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-  const { refreshUser } = useAuth()
+  const { refreshUser, logout } = useAuth()
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -39,14 +39,19 @@ export default function KayitPage() {
       return
     }
 
+    // 0. AGGRESSIVE LOGIN CLEAR
     try {
-      // 0. Ensure no active session exists
-      try {
-        await account.deleteSession("current")
-      } catch (e) {
-        // Ignore error if no session exists
-      }
+      await logout() // Clear context state
+    } catch (e) { console.log('Logout context error ignored', e) }
 
+    try {
+      await account.deleteSession('current') // Force SDK clear
+    } catch (e) { console.log('SDK deleteSession error ignored', e) }
+
+    // Tiny delay to ensure propagation
+    await new Promise(resolve => setTimeout(resolve, 100))
+
+    try {
       // 1. Check Username Uniqueness
       const existingUsers = await databases.listDocuments(
         APPWRITE_CONFIG.DATABASE_ID,
@@ -61,14 +66,23 @@ export default function KayitPage() {
       }
 
       // 2. Create Account
-      // Note: Appwrite requires password min 8 chars usually, handle err if needed
       const newUser = await account.create(ID.unique(), email, password, username)
 
       // 3. Create Session (Login)
-      await account.createEmailPasswordSession(email, password)
+      try {
+        await account.createEmailPasswordSession(email, password)
+      } catch (sessionErr: any) {
+        console.error("Session create error", sessionErr)
+        // If somehow session active error persists, try one more delete and retry
+        if (sessionErr?.message?.includes("active")) {
+          await account.deleteSession('current')
+          await account.createEmailPasswordSession(email, password)
+        } else {
+          throw sessionErr
+        }
+      }
 
-      // 4. Create Profile Document (MANUAL Step required in Supabase migration too)
-      // Using same ID as user for 1:1 relation
+      // 4. Create Profile Document
       await databases.createDocument(
         APPWRITE_CONFIG.DATABASE_ID,
         APPWRITE_CONFIG.COLLECTIONS.PROFILES,

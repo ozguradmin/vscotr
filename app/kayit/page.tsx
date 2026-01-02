@@ -40,6 +40,13 @@ export default function KayitPage() {
     }
 
     try {
+      // 0. Ensure no active session exists
+      try {
+        await account.deleteSession("current")
+      } catch (e) {
+        // Ignore error if no session exists
+      }
+
       // 1. Check Username Uniqueness
       const existingUsers = await databases.listDocuments(
         APPWRITE_CONFIG.DATABASE_ID,

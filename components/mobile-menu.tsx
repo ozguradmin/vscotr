@@ -13,7 +13,8 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: MobileMenuProps) {
   const router = useRouter()
-  const { logout } = useAuth()
+  const { logout, currentProfile } = useAuth()
+  const displayUsername = currentProfile?.username || currentUsername
 
   const handleLogout = async () => {
     await logout()
@@ -39,9 +40,9 @@ export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: 
         {currentUserId && (
           <>
             <Link
-              href={`/${currentUsername}`}
+              href={`/ ${displayUsername} `}
               onClick={onClose}
-              className="block text-2xl font-light hover:text-primary transition-colors"
+              className="text-3xl font-light hover:text-muted-foreground transition-colors"
             >
               Profil
             </Link>

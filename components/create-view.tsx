@@ -32,6 +32,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Slider } from "@/components/ui/slider"
+import { VscoImage } from "@/components/vsco-image"
+import { useAuth } from "@/lib/auth-context"
 
 interface CreateViewProps {
   userId: string
@@ -247,7 +249,10 @@ export function CreateView({ userId, username }: CreateViewProps) {
         }
       )
 
-      router.push(`/${username}`)
+      // Fix Redirect to use current username
+      const targetUsername = currentProfile?.username || user.name
+      router.push(`/${targetUsername}`)
+      router.refresh()
     } catch (error) {
       console.error("[Create] Upload/Publish error:", error)
       alert("Yükleme sırasında bir hata oluştu: " + (error as any).message)

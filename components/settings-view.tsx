@@ -11,6 +11,11 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
+import { ArrowLeft, Search, Menu, X, Plus, Trash2, Upload, Key, User, RotateCcw } from "lucide-react"
+import { VscoLogo } from "@/components/vsco-logo"
+import { MobileMenu } from "@/components/mobile-menu"
+import { SearchModal } from "@/components/search-modal"
+import { MobileTabBar } from "@/components/mobile-tab-bar"
 
 interface Profile {
   id: string

@@ -48,7 +48,7 @@ async function ProfileContent({ username }: { username: string }) {
   // Posts query - simplified to avoid timeout
   const { data: postsData, error: postsError } = await supabase
     .from("posts")
-    .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id")
+    .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id, created_at")
     .eq("user_id", profile.id)
     .order("order_index", { ascending: true })
     .limit(15)

@@ -78,18 +78,15 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
             try {
                 console.log("[Discover] 1. Starting client-side fetch...")
 
-                // 1. Fetch Posts via DIRECT TABLE QUERY (RPC bypass - en güvenilir yol)
-                console.log("[Discover] 2. Querying posts directly from table...")
+                // 1. Fetch Posts via RPC (Step 9 - Çalışan Versiyon)
+                console.log("[Discover] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
-                    .from("posts")
-                    .select(`
-                        *,
-                        profiles (id, username, avatar_url, member_badge)
-                    `)
-                    .order("created_at", { ascending: false })
-                    .limit(15)
+                    .rpc("get_discover_posts", {
+                        p_limit: 15,
+                        p_offset: 0
+                    })
 
-                console.log("[Discover] 3. Direct query result:", { count: postsData?.length, error: postsError })
+                console.log("[Discover] 3. RPC result:", { count: postsData?.length, error: postsError })
 
                 if (postsError) throw postsError
 
@@ -99,14 +96,27 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
                     return
                 }
 
-                // 2. Format posts
+                // 2. Profilleri çek
+                const userIds = [...new Set(postsData.map((p: any) => p.user_id))]
+                console.log("[Discover] 5. Querying profiles...")
+
+                const { data: profilesData, error: profilesError } = await supabase
+                    .from("profiles")
+                    .select("id, username, avatar_url, member_badge")
+                    .in("id", userIds)
+
+                if (profilesError) throw profilesError
+
+                // 3. Birleştir
                 const formattedPosts = postsData.map((p: any) => ({
                     ...p,
                     aspect_ratio: p.aspect_ratio || 1,
-                    profiles: p.profiles || { id: p.user_id, username: 'unknown', avatar_url: null, member_badge: null }
+                    profiles: profilesData?.find((pr: any) => pr.id === p.user_id) || {
+                        id: p.user_id, username: 'unknown', avatar_url: null, member_badge: null
+                    }
                 })) as Post[]
 
-                console.log("[Discover] 4. Posts formatted. Total:", formattedPosts.length)
+                console.log("[Discover] 6. Posts formatted. Total:", formattedPosts.length)
                 setClientPosts(formattedPosts)
 
             } catch (err: any) {

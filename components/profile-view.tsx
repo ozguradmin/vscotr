@@ -103,16 +103,16 @@ export function ProfileView({
             try {
                 console.log("[Profile] 1. Starting fetch for:", profile.id)
 
-                // 1. Fetch Posts via DIRECT TABLE QUERY (RPC bypass - en güvenilir yol)
-                console.log("[Profile] 2. Querying posts directly from table...")
+                // 1. Fetch Posts via RPC (Step 9 - Çalışan Versiyon)
+                console.log("[Profile] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
-                    .from("posts")
-                    .select("*")
-                    .eq("user_id", profile.id)
-                    .order("created_at", { ascending: false })
-                    .limit(15)
+                    .rpc("get_profile_posts", {
+                        p_user_id: profile.id,
+                        p_limit: 15,
+                        p_offset: 0
+                    })
 
-                console.log("[Profile] 3. Direct query result:", { count: postsData?.length, error: postsError })
+                console.log("[Profile] 3. RPC result:", { count: postsData?.length, error: postsError })
 
                 if (postsError) throw postsError
 
@@ -122,7 +122,7 @@ export function ProfileView({
                     return
                 }
 
-                // 2. Add profile data to posts (we already have it from props!)
+                // Profile bilgisi zaten prop olarak var, ekle
                 const formattedPosts: Post[] = postsData.map((p: any) => ({
                     ...p,
                     aspect_ratio: p.aspect_ratio || 1,

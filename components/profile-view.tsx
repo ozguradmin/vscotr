@@ -76,11 +76,23 @@ export function ProfileView({
   const cache = useCache()
   const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
 
+  // Client-side post fetching logic
+  const [clientPosts, setClientPosts] = useState<Post[]>([])
+  const [clientReposts, setClientReposts] = useState<Post[]>([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  // Use client posts if initialPosts is empty (which it will be now)
+  const currentPosts = activeTab === "posts"
+    ? (initialPosts.length > 0 ? initialPosts : clientPosts)
+    : (initialReposts.length > 0 ? initialReposts : clientReposts)
+
   useEffect(() => {
     window.scrollTo(0, 0)
     checkFollowStatus()
   }, [currentUserId, profile.id])
 
+  // Cache effect
   useEffect(() => {
     if (currentUserId && currentPosts.length > 0) {
       // Load from cache first
@@ -93,22 +105,16 @@ export function ProfileView({
     }
   }, [currentUserId, currentPosts, activeTab])
 
-
-
-  // Client-side post fetching
-  const [clientPosts, setClientPosts] = useState<Post[]>([])
-  const [clientReposts, setClientReposts] = useState<Post[]>([])
-  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
-  const [fetchError, setFetchError] = useState<string | null>(null)
-
+  // Fetching effect with verbose logging
   useEffect(() => {
     const fetchProfileData = async () => {
       setIsLoadingPosts(true)
       setFetchError(null)
       try {
-        console.log("Fetching profile posts for:", profile.id)
+        console.log("[Profile] 1. Starting fetch for:", profile.id)
 
         // 1. Fetch Posts
+        console.log("[Profile] 2. Querying posts...")
         const { data: postsData, error: postsError } = await supabase
           .from("posts")
           .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id, created_at")
@@ -116,17 +122,22 @@ export function ProfileView({
           .order("order_index", { ascending: true })
           .limit(15)
 
+        console.log("[Profile] 3. Posts result:", { count: postsData?.length, error: postsError })
+
         if (postsError) throw postsError
 
         setClientPosts(postsData || [])
 
         // 2. Fetch Reposts
+        console.log("[Profile] 4. Querying reposts...")
         const { data: repostsData, error: repostsError } = await supabase
           .from("reposts")
           .select("id, created_at, post_id")
           .eq("user_id", profile.id)
           .order("created_at", { ascending: false })
           .limit(20)
+
+        console.log("[Profile] 5. Reposts result:", { count: repostsData?.length, error: repostsError })
 
         if (repostsError) throw repostsError
 
@@ -145,21 +156,18 @@ export function ProfileView({
           setClientReposts(processedReposts)
         }
       } catch (err: any) {
-        console.error("Profile data fetch error:", err)
-        setFetchError(err.message || "Veri yüklenirken hata oluştu.")
+        console.error("[Profile] CRITICAL ERROR during fetch:", err)
+        setFetchError(err.message || "Veri yüklenirken hata oluştu: " + JSON.stringify(err))
       } finally {
         setIsLoadingPosts(false)
+        console.log("[Profile] 6. Loading set to false")
       }
     }
 
     fetchProfileData()
   }, [profile.id])
 
-  // Use client posts if initialPosts is empty (which it will be now)
-  const currentPosts = activeTab === "posts"
-    ? (initialPosts.length > 0 ? initialPosts : clientPosts)
-    : (initialReposts.length > 0 ? initialReposts : clientReposts)
-
+  // Save to cache effect
   useEffect(() => {
     if (Object.keys(postStates).length > 0 && currentUserId) {
       cache.set(cacheKey, postStates, 600) // 10 min cache
@@ -461,6 +469,7 @@ export function ProfileView({
             {fetchError ? (
               <div className="text-red-500">
                 <p>{fetchError}</p>
+                <div className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto overflow-hidden text-ellipsis">{fetchError}</div>
                 <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
               </div>
             ) : (

@@ -64,38 +64,47 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     }
   }, [currentUserId, posts])
 
-  // Client-side fetching
+  // Client-side local state
   const [clientPosts, setClientPosts] = useState<Post[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [fetchError, setFetchError] = useState<string | null>(null)
 
+  // Fetching Logic with Verbose Logging
   useEffect(() => {
     const fetchDiscoverPosts = async () => {
       setIsLoading(true)
       setFetchError(null)
       try {
-        console.log("[Discover] Fetching posts client-side...")
+        console.log("[Discover] 1. Starting client-side fetch...")
 
         // 1. Fetch Posts
+        console.log("[Discover] 2. Querying posts table...")
         const { data: postsData, error: postsError } = await supabase
           .from("posts")
           .select("id, image_url, caption, aspect_ratio, user_id, created_at")
           .order("created_at", { ascending: false })
           .limit(15)
 
+        console.log("[Discover] 3. Posts query result:", { count: postsData?.length, error: postsError })
+
         if (postsError) throw postsError
 
         if (!postsData || postsData.length === 0) {
+          console.log("[Discover] 4. No posts found in response.")
           setClientPosts([])
           return
         }
 
         // 2. Fetch Profiles for these posts
         const userIds = [...new Set(postsData.map(p => p.user_id))]
+        console.log("[Discover] 5. Querying profiles for userIds:", userIds)
+
         const { data: profilesData, error: profilesError } = await supabase
           .from("profiles")
           .select("id, username, avatar_url, member_badge")
           .in("id", userIds)
+
+        console.log("[Discover] 6. Profiles query result:", { count: profilesData?.length, error: profilesError })
 
         if (profilesError) throw profilesError
 
@@ -110,20 +119,24 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
           }
         }))
 
+        console.log("[Discover] 7. Merge complete, updating state. Total posts:", mergedPosts.length)
         setClientPosts(mergedPosts)
 
       } catch (err: any) {
-        console.error("[Discover] Fetch error:", err)
-        setFetchError(err.message || "Akış yüklenirken bir hata oluştu.")
+        console.error("[Discover] CRITICAL ERROR during fetch:", err)
+        setFetchError(err.message || "Akış yüklenirken bir hata oluştu: " + JSON.stringify(err))
       } finally {
         setIsLoading(false)
+        console.log("[Discover] 8. Loading state set to false.")
       }
     }
 
     // Only fetch if initial posts are empty
     if (posts.length === 0) {
+      console.log("[Discover] Initial posts empty, triggering client fetch.")
       fetchDiscoverPosts()
     } else {
+      console.log("[Discover] Using initial posts provided by server.")
       setIsLoading(false)
     }
   }, [posts.length])
@@ -328,6 +341,7 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
             {fetchError ? (
               <div className="text-red-500">
                 <p>{fetchError}</p>
+                <div className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto overflow-hidden text-ellipsis">{fetchError}</div>
                 <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
               </div>
             ) : (
@@ -442,4 +456,3 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     </div>
   )
 }
-

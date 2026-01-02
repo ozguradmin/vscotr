@@ -404,12 +404,12 @@ export function ProfileView({
 
                         {isOwner ? (
                             <div className="flex flex-wrap gap-3">
-                                <button
-                                    onClick={() => setEditProfileOpen(true)}
-                                    className="px-4 py-1.5 border border-border text-xs font-medium hover:bg-accent transition-colors uppercase tracking-wider"
+                                <Link
+                                    href="/ayarlar"
+                                    className="px-4 py-1.5 border border-border text-xs font-medium hover:bg-accent transition-colors uppercase tracking-wider block"
                                 >
                                     Düzenle
-                                </button>
+                                </Link>
                                 <button
                                     onClick={() => {
                                         const url = window.location.href;

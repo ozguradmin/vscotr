@@ -45,28 +45,22 @@ async function ProfileContent({ username }: { username: string }) {
   const userResult = await supabase.auth.getUser()
   const currentUser = userResult.data.user
 
-  // Posts query with retry logic
-  const fetchPosts = async (retries = 3): Promise<any[]> => {
-    for (let i = 0; i < retries; i++) {
-      const result = await supabase
-        .from("posts")
-        .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id")
-        .eq("user_id", profile.id)
-        .order("order_index", { ascending: true })
-        .limit(50)
+  // Posts query - simplified to avoid timeout
+  const { data: postsData, error: postsError } = await supabase
+    .from("posts")
+    .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id")
+    .eq("user_id", profile.id)
+    .order("order_index", { ascending: true })
+    .limit(15)
 
-      if (!result.error) return result.data || []
-      if (result.error.code !== '57014') return [] // Non-timeout error
-
-      console.log(`[Profile] Posts retry ${i + 1}/${retries}`)
-      if (i < retries - 1) await new Promise(r => setTimeout(r, 500 * (i + 1)))
-    }
-    return []
+  if (postsError) {
+    console.error("Error fetching posts:", postsError)
   }
 
-  // Links ve reposts paralel, posts retry ile
-  const [posts, linksResult, repostsResult] = await Promise.all([
-    fetchPosts(),
+  const posts = postsData || []
+
+  // Links ve reposts paralel
+  const [linksResult, repostsResult] = await Promise.all([
     supabase
       .from("profile_links")
       .select("id, label, url")

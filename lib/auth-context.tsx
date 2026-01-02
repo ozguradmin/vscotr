@@ -3,6 +3,7 @@
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { account } from "@/lib/appwrite/client"
 import { Models } from "appwrite"
+import { useRouter } from "next/navigation"
 
 interface AuthContextType {
     user: Models.User<Models.Preferences> | null

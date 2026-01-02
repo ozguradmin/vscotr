@@ -111,25 +111,33 @@ export function ProfileView({
 
     const currentPosts = activeTab === "posts" ? clientPosts : clientReposts
 
-    // Filter Style
+    // Filter Style - Harmonizing filters that make all images look similar
     const getFilterStyle = () => {
         switch (filterType) {
-            case 'dark': return 'brightness(0.8) contrast(1.1) saturate(0.9)'
-            case 'light': return 'brightness(1.1) contrast(0.95) saturate(0.9)'
-            case 'soft': return 'brightness(1.05) contrast(0.9) sepia(0.1)'
+            case 'dark': return 'grayscale(0.3) brightness(0.85) contrast(1.15)' // Moody dark look
+            case 'light': return 'grayscale(0.2) brightness(1.15) saturate(0.8)' // Washed out light look
+            case 'soft': return 'sepia(0.25) saturate(0.85) contrast(0.95)' // Vintage soft look
             default: return 'none'
         }
     }
 
-    // Handle Sort Change
+    // Handle Sort Change - close filter menu too
     const handleSortChange = (type: "newest" | "oldest" | "shuffle") => {
         setSortOrder(type)
         setShowSortMenu(false)
+        setShowFilterMenu(false)
     }
 
-    // Handle Filter Change
+    // Handle Filter Change - close sort menu too
     const handleFilterChange = (type: "default" | "dark" | "light" | "soft") => {
         setFilterType(type)
+        setShowFilterMenu(false)
+        setShowSortMenu(false)
+    }
+
+    // Close all menus
+    const closeAllMenus = () => {
+        setShowSortMenu(false)
         setShowFilterMenu(false)
     }
 
@@ -548,17 +556,20 @@ export function ProfileView({
                                         variant="ghost"
                                         size="sm"
                                         className="text-xs flex gap-1 h-7 px-2 text-muted-foreground"
-                                        onClick={() => setShowSortMenu(!showSortMenu)}
+                                        onClick={() => { setShowFilterMenu(false); setShowSortMenu(!showSortMenu) }}
                                     >
                                         <Shuffle className="w-3 h-3" />
                                         <span className="hidden sm:inline">{sortOrder === 'newest' ? 'Yeni' : sortOrder === 'oldest' ? 'Eski' : 'Karışık'}</span>
                                     </Button>
                                     {showSortMenu && (
-                                        <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[100px] py-1 flex flex-col">
-                                            <button onClick={() => handleSortChange('newest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Yeni</button>
-                                            <button onClick={() => handleSortChange('oldest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Eski</button>
-                                            <button onClick={() => handleSortChange('shuffle')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Karıştır</button>
-                                        </div>
+                                        <>
+                                            <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
+                                            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-20 min-w-[140px] py-2 flex flex-col overflow-hidden">
+                                                <button onClick={() => handleSortChange('newest')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${sortOrder === 'newest' ? 'bg-gray-100 font-medium' : ''}`}>En Yeni</button>
+                                                <button onClick={() => handleSortChange('oldest')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${sortOrder === 'oldest' ? 'bg-gray-100 font-medium' : ''}`}>En Eski</button>
+                                                <button onClick={() => handleSortChange('shuffle')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${sortOrder === 'shuffle' ? 'bg-gray-100 font-medium' : ''}`}>Karıştır</button>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
 
@@ -568,18 +579,21 @@ export function ProfileView({
                                         variant="ghost"
                                         size="sm"
                                         className="text-xs flex gap-1 h-7 px-2 text-muted-foreground"
-                                        onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                        onClick={() => { setShowSortMenu(false); setShowFilterMenu(!showFilterMenu) }}
                                     >
                                         <Filter className="w-3 h-3" />
                                         <span className="hidden sm:inline">Ton</span>
                                     </Button>
                                     {showFilterMenu && (
-                                        <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[100px] py-1 flex flex-col">
-                                            <button onClick={() => handleFilterChange('default')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'default' ? 'bg-accent' : ''}`}>Normal</button>
-                                            <button onClick={() => handleFilterChange('dark')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'dark' ? 'bg-accent' : ''}`}>Koyu</button>
-                                            <button onClick={() => handleFilterChange('light')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'light' ? 'bg-accent' : ''}`}>Açık</button>
-                                            <button onClick={() => handleFilterChange('soft')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'soft' ? 'bg-accent' : ''}`}>Soft</button>
-                                        </div>
+                                        <>
+                                            <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
+                                            <div className="absolute top-full left-0 mt-1 bg-white border rounded-lg shadow-xl z-20 min-w-[140px] py-2 flex flex-col overflow-hidden">
+                                                <button onClick={() => handleFilterChange('default')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${filterType === 'default' ? 'bg-gray-100 font-medium' : ''}`}>Normal</button>
+                                                <button onClick={() => handleFilterChange('dark')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${filterType === 'dark' ? 'bg-gray-100 font-medium' : ''}`}>Koyu Ton</button>
+                                                <button onClick={() => handleFilterChange('light')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${filterType === 'light' ? 'bg-gray-100 font-medium' : ''}`}>Açık Ton</button>
+                                                <button onClick={() => handleFilterChange('soft')} className={`text-left px-4 py-2 hover:bg-gray-50 text-sm transition-colors ${filterType === 'soft' ? 'bg-gray-100 font-medium' : ''}`}>Vintage</button>
+                                            </div>
+                                        </>
                                     )}
                                 </div>
 

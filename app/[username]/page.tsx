@@ -107,13 +107,17 @@ async function ProfileContent({ username }: { username: string }) {
 
   let isFollowing = false
   if (currentUser && currentUser.id !== profile.id) {
-    const { data: follow } = await supabase
-      .from("follows")
-      .select("id")
-      .eq("follower_id", currentUser.id)
-      .eq("following_id", profile.id)
-      .maybeSingle()
-    isFollowing = !!follow
+    return (
+      <ProfileView
+        profile={profile}
+        posts={posts}
+        links={links}
+        reposts={reposts}
+        currentUserId={currentUser?.id}
+        isFollowing={false} // Client-side will fetch this
+        isOwnProfile={currentUser?.id === profile.id}
+      />
+    )
   }
 
   return (
@@ -123,7 +127,7 @@ async function ProfileContent({ username }: { username: string }) {
       links={links}
       reposts={reposts}
       currentUserId={currentUser?.id}
-      isFollowing={isFollowing}
+      isFollowing={false}
       isOwnProfile={currentUser?.id === profile.id}
     />
   )
@@ -144,7 +148,5 @@ export default async function UserProfilePage({ params }: PageProps) {
   )
 }
 
-// Profile sayfası force-dynamic olmalı çünkü:
-// 1. Auth durumuna göre farklı içerik (takip butonu, düzenleme vs)
-// 2. Supabase RLS politikaları ISR cache'i ile çakışıyor
-export const dynamic = "force-dynamic"
+// ISR: Cache for 60 seconds
+export const revalidate = 60

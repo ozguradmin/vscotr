@@ -238,12 +238,13 @@ export function ProfileView({
             <span className="font-semibold">VSCO TR 7</span>
           </Link>
           <div className="flex items-center gap-1">
-            <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
+            <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)} aria-label="Arama">
               <Search className="w-6 h-6" />
             </button>
             <button
               className="p-2 hover:bg-accent rounded-full transition-colors"
               onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Menü"
             >
               {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
@@ -314,8 +315,8 @@ export function ProfileView({
                 <button
                   onClick={handleFollow}
                   className={`px-6 py-1.5 text-xs font-medium transition-colors uppercase tracking-wider ${isFollowing
-                      ? "border border-border hover:bg-accent"
-                      : "bg-foreground text-background hover:opacity-90"
+                    ? "border border-border hover:bg-accent"
+                    : "bg-foreground text-background hover:opacity-90"
                     }`}
                 >
                   {isFollowing ? "Takipte" : "Takip Et"}

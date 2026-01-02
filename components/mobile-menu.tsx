@@ -76,6 +76,7 @@ export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: 
             <button
               onClick={handleLogout}
               className="block text-lg text-red-500 hover:text-red-600 transition-colors w-full text-left"
+              aria-label="Çıkış Yap"
             >
               Çıkış Yap
             </button>

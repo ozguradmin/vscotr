@@ -2,11 +2,9 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { useRouter } from "next/navigation"
 import { databases, storage, account, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { ID, Query } from "appwrite"
 import { VscoImage } from "@/components/vsco-image"
-import { ID, Query } from "appwrite"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"

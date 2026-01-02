@@ -48,7 +48,7 @@ export function ProfileView({
     profile,
     posts: initialPosts,
     reposts,
-    isOwner: isOwnProfile, // Renamed to avoid conflict with derived state
+    isOwnProfile, // We use this prop name now
     links
 }: {
     profile: Profile
@@ -58,6 +58,8 @@ export function ProfileView({
     links: { id: string; label: string; url: string }[]
 }) {
     const { user } = useAuth()
+    const currentUserId = user?.$id
+    const currentUsername = user?.name
     const router = useRouter()
 
     // States
@@ -412,6 +414,44 @@ export function ProfileView({
                             {profile.avatar_url ? (
                                 <VscoImage
                                     src={profile.avatar_url}
+                                    alt={profile.username}
+                                    className="w-full h-full"
+                                />
+                            ) : (
+                                <div className="w-full h-full flex items-center justify-center text-2xl font-semibold text-muted-foreground bg-muted">
+                                    {profile.username[0].toUpperCase()}
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                    <div className="flex-1">
+                        <div className="flex items-center gap-4 mb-2">
+                            <h1 className="text-2xl font-bold">{profile.username}</h1>
+                            {profile.member_badge && (
+                                <span className="bg-primary text-primary-foreground text-xs px-2 py-1 rounded-full uppercase font-semibold">
+                                    {profile.member_badge}
+                                </span>
+                            )}
+                        </div>
+                        {profile.bio && <p className="text-muted-foreground mb-4">{profile.bio}</p>}
+
+                        {currentUserId && profile.id !== currentUserId && (
+                            <Button onClick={handleFollow} className="w-full md:w-auto">
+                                {isFollowing ? "Takibi Bırak" : "Takip Et"}
+                            </Button>
+                        )}
+
+                        {currentUserId && profile.id === currentUserId && (
+                            <div className="flex gap-2">
+                                <Button variant="outline" onClick={() => setEditProfileOpen(true)} className="flex-1">
+                                    Profili Düzenle
+                                </Button>
+                                <Button variant="outline" onClick={() => setSettingsOpen(true)} className="flex-1">
+                                    Ayarlar
+                                </Button>
+                                <button
+                                    onClick={() => {
+                                        navigator.clipboard.writeText(`${window.location.origin}/profil/${profile.username}`);
                                         alert("Profil linki kopyalandı!");
                                     }}
                                     className="p-1.5 border border-border hover:bg-accent transition-colors rounded-full"
@@ -470,128 +510,128 @@ export function ProfileView({
                 </div>
 
                 {
-        (activeTab === "posts" ? isLoading : isLoadingReposts) ? (
-            <div className="columns-2 md:columns-3 gap-1 space-y-1">
-                {[...Array(6)].map((_, i) => (
-                    <div key={i} className="aspect-square bg-muted animate-pulse break-inside-avoid" />
-                ))}
-            </div>
-        ) : currentPosts.length === 0 ? (
-            <div className="py-16 text-center text-muted-foreground">
-                {fetchError ? (
-                    <div className="text-red-500">
-                        <p>{fetchError}</p>
-                        <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
-                    </div>
-                ) : (
-                    <p>
-                        {activeTab === "posts"
-                            ? "Henüz hiç gönderi yok"
-                            : "Henüz hiç yeniden paylaşım yok"}
-                    </p>
-                )}
-            </div>
-        ) : null
-    }
+                    (activeTab === "posts" ? isLoading : isLoadingReposts) ? (
+                        <div className="columns-2 md:columns-3 gap-1 space-y-1">
+                            {[...Array(6)].map((_, i) => (
+                                <div key={i} className="aspect-square bg-muted animate-pulse break-inside-avoid" />
+                            ))}
+                        </div>
+                    ) : currentPosts.length === 0 ? (
+                        <div className="py-16 text-center text-muted-foreground">
+                            {fetchError ? (
+                                <div className="text-red-500">
+                                    <p>{fetchError}</p>
+                                    <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
+                                </div>
+                            ) : (
+                                <p>
+                                    {activeTab === "posts"
+                                        ? "Henüz hiç gönderi yok"
+                                        : "Henüz hiç yeniden paylaşım yok"}
+                                </p>
+                            )}
+                        </div>
+                    ) : null
+                }
             </main >
 
-        { selectedPost && selectedPostIndex !== null && (
-            <div
-                className="fixed inset-0 z-50 bg-background flex flex-col"
-                onTouchStart={onTouchStart}
-                onTouchMove={onTouchMove}
-                onTouchEnd={onTouchEnd}
-            >
-                <div className="flex items-center justify-end h-14 px-4 border-b border-border flex-shrink-0">
-                    <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full">
-                        <X className="w-6 h-6" />
-                    </button>
-                </div>
-
-                <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
-                    <div className="relative w-full h-full max-h-[80vh]">
-                        <VscoImage
-                            src={selectedPost.image_url || "/placeholder.svg"}
-                            alt={selectedPost.caption || ""}
-                            layout="fill"
-                            objectFit="contain"
-                            className="bg-transparent"
-                            quality={90}
-                            priority
-                        />
+            {selectedPost && selectedPostIndex !== null && (
+                <div
+                    className="fixed inset-0 z-50 bg-background flex flex-col"
+                    onTouchStart={onTouchStart}
+                    onTouchMove={onTouchMove}
+                    onTouchEnd={onTouchEnd}
+                >
+                    <div className="flex items-center justify-end h-14 px-4 border-b border-border flex-shrink-0">
+                        <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full">
+                            <X className="w-6 h-6" />
+                        </button>
                     </div>
 
-
-                    {selectedPostIndex > 0 && (
-                        <button
-                            onClick={() => navigatePost("prev")}
-                            className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
-                        >
-                            <ChevronLeft className="w-6 h-6" />
-                        </button>
-                    )}
-                    {selectedPostIndex < currentPosts.length - 1 && (
-                        <button
-                            onClick={() => navigatePost("next")}
-                            className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
-                        >
-                            <ChevronRight className="w-6 h-6" />
-                        </button>
-                    )}
-                </div>
-
-                <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
-                    <div className="p-4 flex items-start justify-between gap-4">
-                        <div className="flex items-center gap-3 min-w-0 flex-1">
-                            <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
-                                {profile.avatar_url ? (
-                                    <VscoImage
-                                        src={profile.avatar_url}
-                                        alt=""
-                                        className="w-full h-full"
-                                    />
-                                ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
-                                        {profile.username[0].toUpperCase()}
-                                    </div>
-                                )}
-                            </div>
-                            <div className="flex-1 min-w-0">
-                                <p className="font-medium truncate">{profile.username}</p>
-                                {profile.member_badge && (
-                                    <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
-                                )}
-                                {selectedPost.caption && (
-                                    <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
-                                )}
-                            </div>
+                    <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
+                        <div className="relative w-full h-full max-h-[80vh]">
+                            <VscoImage
+                                src={selectedPost.image_url || "/placeholder.svg"}
+                                alt={selectedPost.caption || ""}
+                                layout="fill"
+                                objectFit="contain"
+                                className="bg-transparent"
+                                quality={90}
+                                priority
+                            />
                         </div>
 
-                        {currentUserId && profile.id !== currentUserId && (
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                <button
-                                    onClick={() => handleLike(selectedPost.id)}
-                                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""
-                                        }`}
-                                >
-                                    <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
-                                </button>
-                                <button
-                                    onClick={() => handleRepost(selectedPost.id)}
-                                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
-                                        }`}
-                                >
-                                    <RotateCcw className="w-5 h-5" />
-                                </button>
-                            </div>
+
+                        {selectedPostIndex > 0 && (
+                            <button
+                                onClick={() => navigatePost("prev")}
+                                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
+                            >
+                                <ChevronLeft className="w-6 h-6" />
+                            </button>
+                        )}
+                        {selectedPostIndex < currentPosts.length - 1 && (
+                            <button
+                                onClick={() => navigatePost("next")}
+                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
+                            >
+                                <ChevronRight className="w-6 h-6" />
+                            </button>
                         )}
                     </div>
-                </div>
-            </div>
-        )
-}
 
-<MobileTabBar currentUserId={currentUserId} username={currentUsername} />
+                    <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
+                        <div className="p-4 flex items-start justify-between gap-4">
+                            <div className="flex items-center gap-3 min-w-0 flex-1">
+                                <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                                    {profile.avatar_url ? (
+                                        <VscoImage
+                                            src={profile.avatar_url}
+                                            alt=""
+                                            className="w-full h-full"
+                                        />
+                                    ) : (
+                                        <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                                            {profile.username[0].toUpperCase()}
+                                        </div>
+                                    )}
+                                </div>
+                                <div className="flex-1 min-w-0">
+                                    <p className="font-medium truncate">{profile.username}</p>
+                                    {profile.member_badge && (
+                                        <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
+                                    )}
+                                    {selectedPost.caption && (
+                                        <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
+                                    )}
+                                </div>
+                            </div>
+
+                            {currentUserId && profile.id !== currentUserId && (
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={() => handleLike(selectedPost.id)}
+                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""
+                                            }`}
+                                    >
+                                        <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleRepost(selectedPost.id)}
+                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
+                                            }`}
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )
+            }
+
+            <MobileTabBar currentUserId={currentUserId} username={currentUsername} />
         </div >
     )
 }

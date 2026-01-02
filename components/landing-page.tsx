@@ -139,8 +139,6 @@ export function LandingPage() {
               ))
               : featuredPosts.length > 0
                 ? featuredPosts.map((post) => (
-                  <button
-                    key={post.id}
                   <div key={post.id} className="relative group break-inside-avoid mb-4">
                     <div
                       className="relative overflow-hidden rounded-lg cursor-pointer"

@@ -3,7 +3,8 @@
 import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { Query } from "appwrite"
 import { VscoLogo } from "@/components/vsco-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -47,8 +48,6 @@ export default function AdminPage() {
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
 
-  const supabase = useMemo(() => createClient(), [])
-
   // Oturum kontrolü
   useEffect(() => {
     const adminSession = sessionStorage.getItem("vsco_admin_session")
@@ -84,36 +83,74 @@ export default function AdminPage() {
 
   const loadUsers = async () => {
     setIsLoading(true)
-    const { data } = await supabase.from("profiles").select("*").order("created_at", { ascending: false })
-
-    if (data) {
-      setUsers(data)
+    try {
+      const { documents } = await databases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+        [Query.orderDesc("$createdAt")]
+      )
+      setUsers(documents.map((d: any) => ({
+        id: d.$id,
+        username: d.username,
+        display_name: d.display_name,
+        avatar_url: d.avatar_url,
+        bio: d.bio,
+        member_badge: d.member_badge,
+        location: d.location,
+        created_at: d.$createdAt
+      })))
+    } catch (e) {
+      console.error("Admin load users error:", e)
+    } finally {
+      setIsLoading(false)
     }
-    setIsLoading(false)
   }
 
   const handleUpdateBadge = async (userId: string, badge: string) => {
-    await supabase.from("profiles").update({ member_badge: badge }).eq("id", userId)
-
-    setUsers(users.map((u) => (u.id === userId ? { ...u, member_badge: badge } : u)))
-    if (selectedUser?.id === userId) {
-      setSelectedUser({ ...selectedUser, member_badge: badge })
+    try {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+        userId,
+        { member_badge: badge }
+      )
+      setUsers(users.map((u) => (u.id === userId ? { ...u, member_badge: badge } : u)))
+      if (selectedUser?.id === userId) {
+        setSelectedUser({ ...selectedUser, member_badge: badge })
+      }
+    } catch (e) {
+      console.error("Badge update error", e)
     }
   }
 
   const handleDeleteUser = async (userId: string) => {
     if (!confirm("Bu kullanıcıyı silmek istediğinize emin misiniz? Bu işlem geri alınamaz.")) return
 
-    // Önce kullanıcının tüm verilerini sil
-    await supabase.from("posts").delete().eq("user_id", userId)
-    await supabase.from("profile_links").delete().eq("profile_id", userId)
-    await supabase.from("follows").delete().or(`follower_id.eq.${userId},following_id.eq.${userId}`)
-    await supabase.from("likes").delete().eq("user_id", userId)
-    await supabase.from("reposts").delete().eq("user_id", userId)
-    await supabase.from("profiles").delete().eq("id", userId)
+    try {
+      // Appwrite doesn't support cascading deletes easily or bulk deletes by query in Client SDK.
+      // We have to list then delete. This is heavy but fine for admin panel.
 
-    setUsers(users.filter((u) => u.id !== userId))
-    setSelectedUser(null)
+      // 1. Delete Posts
+      const posts = await databases.listDocuments(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.POSTS, [Query.equal("user_id", userId)])
+      await Promise.all(posts.documents.map(d => databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.POSTS, d.$id)))
+
+      // 2. Delete Profile Links
+      const links = await databases.listDocuments(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS, [Query.equal("profile_id", userId)])
+      await Promise.all(links.documents.map(d => databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS, d.$id)))
+
+      // 3. Delete Reposts
+      const reposts = await databases.listDocuments(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.REPOSTS, [Query.equal("user_id", userId)])
+      await Promise.all(reposts.documents.map(d => databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.REPOSTS, d.$id)))
+
+      // 4. Delete Profile (The User object in Auth is not deleted here, only the profile doc. Admin SDK needed for Auth User delete properly)
+      await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILES, userId)
+
+      setUsers(users.filter((u) => u.id !== userId))
+      setSelectedUser(null)
+    } catch (e) {
+      console.error("User delete error", e)
+      alert("Silme işlemi sırasında hata oluştu.")
+    }
   }
 
   const filteredUsers = users.filter(
@@ -212,9 +249,8 @@ export default function AdminPage() {
                   <button
                     key={user.id}
                     onClick={() => setSelectedUser(user)}
-                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${
-                      selectedUser?.id === user.id ? "bg-accent" : "hover:bg-accent/50"
-                    }`}
+                    className={`w-full flex items-center gap-3 p-3 rounded-lg transition-colors text-left ${selectedUser?.id === user.id ? "bg-accent" : "hover:bg-accent/50"
+                      }`}
                   >
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
                       {user.avatar_url ? (
@@ -290,11 +326,10 @@ export default function AdminPage() {
                       <button
                         key={badge}
                         onClick={() => handleUpdateBadge(selectedUser.id, badge)}
-                        className={`px-3 py-1.5 text-xs font-medium uppercase transition-colors ${
-                          selectedUser.member_badge === badge
-                            ? "bg-foreground text-background"
-                            : "bg-muted text-muted-foreground hover:bg-muted/80"
-                        }`}
+                        className={`px-3 py-1.5 text-xs font-medium uppercase transition-colors ${selectedUser.member_badge === badge
+                          ? "bg-foreground text-background"
+                          : "bg-muted text-muted-foreground hover:bg-muted/80"
+                          }`}
                       >
                         {badge}
                       </button>
@@ -306,7 +341,7 @@ export default function AdminPage() {
                     onKeyDown={(e) => {
                       if (e.key === "Enter") {
                         handleUpdateBadge(selectedUser.id, (e.target as HTMLInputElement).value.toUpperCase())
-                        ;(e.target as HTMLInputElement).value = ""
+                          ; (e.target as HTMLInputElement).value = ""
                       }
                     }}
                   />

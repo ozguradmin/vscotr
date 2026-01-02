@@ -23,7 +23,8 @@ import {
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
-import { createClient } from "@/lib/supabase/client"
+import { storage, databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { ID } from "appwrite"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -92,7 +93,7 @@ export function CreateView({ userId, username }: CreateViewProps) {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
 
-  const supabase = useMemo(() => createClient(), [])
+
 
   const handleFileSelect = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
@@ -188,8 +189,7 @@ export function CreateView({ userId, username }: CreateViewProps) {
     setIsUploading(true)
 
     try {
-      const orderIndex = Math.floor(Date.now() / 1000)
-
+      // 1. Prepare Image (Canvas conversion logic remains same)
       const canvas = document.createElement("canvas")
       const ctx = canvas.getContext("2d")
       const img = new Image()
@@ -217,52 +217,40 @@ export function CreateView({ userId, username }: CreateViewProps) {
       canvas.height = height
       ctx?.drawImage(img, 0, 0, width, height)
 
+      // Convert to Blob (WebP)
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/webp", 0.85))
+      const fileToUpload = new File([blob], "image.webp", { type: "image/webp" })
 
-      const fileName = `${userId}/${Date.now()}.webp`
+      // 2. Upload to Appwrite Storage
+      const fileUpload = await storage.createFile(
+        APPWRITE_CONFIG.BUCKET_ID,
+        ID.unique(),
+        fileToUpload
+      )
 
-      const { data: uploadData, error: uploadError } = await supabase.storage.from("posts").upload(fileName, blob, {
-        contentType: "image/webp",
-      })
+      // 3. Get Image URL
+      // Using getFileView for display, usually better to cache or use a CDN but this works for Appwrite Cloud
+      const imageUrl = storage.getFileView(APPWRITE_CONFIG.BUCKET_ID, fileUpload.$id)
 
-      if (uploadError) {
-        console.error("[v0] Upload error:", uploadError)
-
-        const { error: postError } = await supabase.from("posts").insert({
+      // 4. Create Post Document
+      await databases.createDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.POSTS,
+        ID.unique(),
+        {
           user_id: userId,
-          image_url: image,
+          image_url: imageUrl,
           caption: caption || null,
-          post_date: postDate || new Date().toISOString(),
+          created_at: postDate ? new Date(postDate).toISOString() : new Date().toISOString(),
           aspect_ratio: aspectRatio,
-          order_index: orderIndex,
-        })
-
-        if (postError) {
-          console.error("[v0] Post insert error:", postError)
-          throw postError
+          order_index: Math.floor(Date.now() / 1000)
         }
-      } else {
-        const { data: urlData } = supabase.storage.from("posts").getPublicUrl(fileName)
-
-        const { error: postError } = await supabase.from("posts").insert({
-          user_id: userId,
-          image_url: urlData.publicUrl,
-          caption: caption || null,
-          post_date: postDate || new Date().toISOString(),
-          aspect_ratio: aspectRatio,
-          order_index: orderIndex,
-        })
-
-        if (postError) {
-          console.error("[v0] Post insert error:", postError)
-          throw postError
-        }
-      }
+      )
 
       router.push(`/${username}`)
     } catch (error) {
-      console.error("[v0] Yükleme hatası:", error)
-      alert("Yükleme sırasında bir hata oluştu")
+      console.error("[Create] Upload/Publish error:", error)
+      alert("Yükleme sırasında bir hata oluştu: " + (error as any).message)
     } finally {
       setIsUploading(false)
     }
@@ -340,17 +328,15 @@ export function CreateView({ userId, username }: CreateViewProps) {
                 <div className="flex border-b border-border">
                   <button
                     onClick={() => setActiveTab("presets")}
-                    className={`flex-1 py-3 text-sm font-medium ${
-                      activeTab === "presets" ? "border-b-2 border-foreground" : "text-muted-foreground"
-                    }`}
+                    className={`flex-1 py-3 text-sm font-medium ${activeTab === "presets" ? "border-b-2 border-foreground" : "text-muted-foreground"
+                      }`}
                   >
                     <ImageIcon className="w-4 h-4 mx-auto" />
                   </button>
                   <button
                     onClick={() => setActiveTab("adjust")}
-                    className={`flex-1 py-3 text-sm font-medium ${
-                      activeTab === "adjust" ? "border-b-2 border-foreground" : "text-muted-foreground"
-                    }`}
+                    className={`flex-1 py-3 text-sm font-medium ${activeTab === "adjust" ? "border-b-2 border-foreground" : "text-muted-foreground"
+                      }`}
                   >
                     <Sliders className="w-4 h-4 mx-auto" />
                   </button>
@@ -389,9 +375,8 @@ export function CreateView({ userId, username }: CreateViewProps) {
                         <button
                           key={preset.id}
                           onClick={() => setSelectedPreset(preset.id)}
-                          className={`aspect-square rounded-lg overflow-hidden relative ${
-                            selectedPreset === preset.id ? "ring-2 ring-foreground" : ""
-                          }`}
+                          className={`aspect-square rounded-lg overflow-hidden relative ${selectedPreset === preset.id ? "ring-2 ring-foreground" : ""
+                            }`}
                         >
                           <img
                             src={image || "/placeholder.svg"}

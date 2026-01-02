@@ -2,13 +2,15 @@
 
 import type React from "react"
 import { useState } from "react"
-import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { VscoLogo } from "@/components/vsco-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { account, databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { useAuth } from "@/lib/auth-context"
+import { Query } from "appwrite"
 
 export default function GirisPage() {
   const [email, setEmail] = useState("")
@@ -16,8 +18,7 @@ export default function GirisPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
-
-  const supabase = createClient()
+  const { refreshUser } = useAuth()
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -25,38 +26,36 @@ export default function GirisPage() {
     setError(null)
 
     try {
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
-      })
-      if (error) {
-        if (error.message.includes("Invalid login credentials")) {
-          throw new Error("Geçersiz giriş bilgileri")
-        } else if (error.message.includes("Email not confirmed")) {
-          throw new Error("E-posta adresiniz doğrulanmamış")
-        } else if (error.message.includes("Invalid email")) {
-          throw new Error("Geçersiz e-posta adresi")
-        } else if (error.message.includes("too many requests")) {
-          throw new Error("Çok fazla deneme yaptınız. Lütfen daha sonra tekrar deneyin")
-        } else {
-          throw new Error("Giriş yapılamadı. Lütfen tekrar deneyin")
-        }
-      }
+      // 1. Create Session
+      await account.createEmailPasswordSession(email, password)
 
-      const {
-        data: { user },
-      } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).maybeSingle()
+      // 2. Refresh Context
+      await refreshUser()
 
-        if (profile?.username) {
-          router.push(`/akis`)
-        } else {
-          router.push("/ayarlar")
-        }
+      // 3. Get User ID to check profile
+      const user = await account.get()
+
+      // 4. Check Profile
+      const profile = await databases.getDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+        user.$id
+      ).catch(() => null)
+
+      if (profile && profile.username) {
+        router.push(`/akis`)
+      } else {
+        router.push("/ayarlar")
       }
-    } catch (error: unknown) {
-      setError(error instanceof Error ? error.message : "Bir hata oluştu")
+    } catch (error: any) {
+      console.error("Login error:", error)
+      if (error?.message?.includes("Invalid credentials")) {
+        setError("Geçersiz e-posta veya şifre")
+      } else if (error?.type === "user_blocked") {
+        setError("Hesabınız engellenmiş")
+      } else {
+        setError("Giriş yapılamadı: " + (error.message || "Bilinmeyen hata"))
+      }
     } finally {
       setIsLoading(false)
     }

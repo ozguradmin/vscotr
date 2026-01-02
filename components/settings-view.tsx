@@ -9,7 +9,8 @@ import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import { VscoImage } from "@/components/vsco-image"
-import { createClient } from "@/lib/supabase/client"
+import { databases, storage, account, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { ID, Query } from "appwrite"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { Button } from "@/components/ui/button"
@@ -93,47 +94,70 @@ export function SettingsView({
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
-  const supabase = useMemo(() => createClient(), [])
-
   const handleAvatarChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0]
     if (!file) return
 
-    const reader = new FileReader()
-    reader.onload = (event) => {
-      setFormData({ ...formData, avatar_url: event.target?.result as string })
+    try {
+      // Upload to Appwrite Storage
+      const fileUpload = await storage.createFile(
+        APPWRITE_CONFIG.BUCKET_ID,
+        ID.unique(),
+        file
+      )
+      const avatarUrl = storage.getFileView(APPWRITE_CONFIG.BUCKET_ID, fileUpload.$id) // .href check needed if string return? Yes, string.
+
+      setFormData({ ...formData, avatar_url: avatarUrl as any as string }) // Type casting if needed or just string
+    } catch (error) {
+      console.error("Avatar upload error", error)
+      showToast("Avatar yüklenemedi")
     }
-    reader.readAsDataURL(file)
   }
 
   const handleSaveProfile = async () => {
     setIsSaving(true)
 
     try {
-      const { error: profileError } = await supabase
-        .from("profiles")
-        .update({
+      // Update Profile
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+        userId,
+        {
           username: formData.username.toLowerCase(),
           display_name: formData.display_name || null,
           bio: formData.bio || null,
           location: formData.location || null,
           avatar_url: formData.avatar_url || null,
           updated_at: new Date().toISOString(),
-        })
-        .eq("id", userId)
+        }
+      )
 
-      if (profileError) throw profileError
+      // Update Links: Appwrite doesn't support "delete where". We must list then delete.
+      const linksRes = await databases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS,
+        [Query.equal("profile_id", userId)]
+      )
 
-      await supabase.from("profile_links").delete().eq("profile_id", userId)
+      await Promise.all(linksRes.documents.map(link =>
+        databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS, link.$id)
+      ))
 
       if (links.length > 0) {
-        const linksToInsert = links.map((link, index) => ({
-          profile_id: userId,
-          label: link.label || null,
-          url: link.url,
-          order_index: index,
-        }))
-        await supabase.from("profile_links").insert(linksToInsert)
+        await Promise.all(links.map((link, index) =>
+          databases.createDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS,
+            ID.unique(),
+            {
+              profile_id: userId,
+              label: link.label || null,
+              url: link.url,
+              order_index: index
+            }
+          )
+        ))
       }
 
       showToast("Profil başarıyla kaydedildi")
@@ -158,25 +182,31 @@ export function SettingsView({
       return
     }
 
-    const { data: existingUser } = await supabase
-      .from("profiles")
-      .select("username")
-      .eq("username", newUsername.toLowerCase())
-      .neq("id", userId)
-      .maybeSingle()
+    try {
+      const existingUsers = await databases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+        [Query.equal("username", newUsername.toLowerCase())]
+      )
 
-    if (existingUser) {
-      setAccountError("Bu kullanıcı adı zaten alınmış")
-      return
-    }
+      // Check if exists and is NOT the current user
+      if (existingUsers.documents.length > 0 && existingUsers.documents[0].$id !== userId) {
+        setAccountError("Bu kullanıcı adı zaten alınmış")
+        return
+      }
 
-    const { error } = await supabase.from("profiles").update({ username: newUsername.toLowerCase() }).eq("id", userId)
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+        userId,
+        { username: newUsername.toLowerCase() }
+      )
 
-    if (error) {
-      setAccountError("Kullanıcı adı değiştirilemedi")
-    } else {
       showToast("Kullanıcı adı başarıyla değiştirildi")
       setFormData({ ...formData, username: newUsername.toLowerCase() })
+
+    } catch (error: any) {
+      setAccountError("Kullanıcı adı değiştirilemedi: " + error.message)
     }
   }
 
@@ -184,8 +214,8 @@ export function SettingsView({
     setAccountError(null)
     setAccountSuccess(null)
 
-    if (newPassword.length < 6) {
-      setAccountError("Yeni şifre en az 6 karakter olmalı")
+    if (newPassword.length < 8) { // Appwrite min 8 chars usually
+      setAccountError("Yeni şifre en az 8 karakter olmalı")
       return
     }
 
@@ -194,15 +224,19 @@ export function SettingsView({
       return
     }
 
-    const { error } = await supabase.auth.updateUser({ password: newPassword })
+    if (!currentPassword) {
+      setAccountError("Mevcut şifrenizi girmelisiniz")
+      return
+    }
 
-    if (error) {
-      setAccountError("Şifre değiştirilemedi: " + error.message)
-    } else {
+    try {
+      await account.updatePassword(newPassword, currentPassword)
       showToast("Şifre başarıyla değiştirildi")
       setCurrentPassword("")
       setNewPassword("")
       setConfirmPassword("")
+    } catch (error: any) {
+      setAccountError("Şifre değiştirilemedi: " + error.message)
     }
   }
 
@@ -232,10 +266,19 @@ export function SettingsView({
   const confirmDeletePost = async () => {
     if (!deletePostConfirm) return
 
-    await supabase.from("posts").delete().eq("id", deletePostConfirm)
-    setPosts(posts.filter((p) => p.id !== deletePostConfirm))
-    setDeletePostConfirm(null)
-    router.refresh()
+    try {
+      await databases.deleteDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.POSTS,
+        deletePostConfirm
+      )
+      setPosts(posts.filter((p) => p.id !== deletePostConfirm))
+      setDeletePostConfirm(null)
+      router.refresh()
+    } catch (e) {
+      console.error("Delete post error", e)
+      showToast("Gönderi silinemedi")
+    }
   }
 
   const handleUpdatePostOrder = async (postId: string, direction: "up" | "down") => {
@@ -248,28 +291,51 @@ export function SettingsView({
     const swapIndex = direction === "up" ? index - 1 : index + 1
       ;[newPosts[index], newPosts[swapIndex]] = [newPosts[swapIndex], newPosts[index]]
 
-    for (let i = 0; i < newPosts.length; i++) {
-      await supabase.from("posts").update({ order_index: i }).eq("id", newPosts[i].id)
-    }
+    setPosts(newPosts) // Optimistic update
 
-    setPosts(newPosts)
+    try {
+      await Promise.all(newPosts.map((p, i) =>
+        databases.updateDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.POSTS,
+          p.id,
+          { order_index: i }
+        )
+      ))
+    } catch (e) {
+      console.error("Order update error", e)
+    }
   }
 
   const handleUpdatePost = async (postId: string, field: "caption" | "post_date", value: string) => {
-    await supabase
-      .from("posts")
-      .update({ [field]: value || null })
-      .eq("id", postId)
-    setPosts(posts.map((p) => (p.id === postId ? { ...p, [field]: value } : p)))
+    try {
+      await databases.updateDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.POSTS,
+        postId,
+        { [field]: value || null }
+      )
+      setPosts(posts.map((p) => (p.id === postId ? { ...p, [field]: value } : p)))
+    } catch (e) {
+      console.error("Update post error", e)
+    }
   }
 
   const handleDeleteRepost = async (repostId: string) => {
     if (!confirm("Bu repostu silmek istediğinize emin misiniz?")) return
 
-    await supabase.from("reposts").delete().eq("id", repostId)
-    setReposts(reposts.filter((r) => r.id !== repostId))
-    showToast("Repost silindi")
-    router.refresh()
+    try {
+      await databases.deleteDocument(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+        repostId
+      )
+      setReposts(reposts.filter((r) => r.id !== repostId))
+      showToast("Repost silindi")
+      router.refresh()
+    } catch (e) {
+      console.error("Delete repost error", e)
+    }
   }
 
   const showToast = (message: string) => {
@@ -578,6 +644,16 @@ export function SettingsView({
 
             <div className="space-y-4">
               <h3 className="font-medium">Şifre Değiştir</h3>
+              <div>
+                <Label htmlFor="current_password">Mevcut Şifre</Label>
+                <Input
+                  id="current_password"
+                  type="password"
+                  value={currentPassword}
+                  onChange={(e) => setCurrentPassword(e.target.value)}
+                  className="mt-1"
+                />
+              </div>
               <div>
                 <Label htmlFor="new_password">Yeni Şifre</Label>
                 <Input

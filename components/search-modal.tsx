@@ -2,7 +2,8 @@
 
 import { useState, useEffect } from "react"
 import { Search, Loader2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { Query } from "appwrite"
 import Link from "next/link"
 import { useDebounce } from "@/hooks/use-debounce"
 import { VscoImage } from "@/components/vsco-image"
@@ -35,7 +36,6 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
   const [results, setResults] = useState<SearchResult>({ profiles: [], posts: [] })
   const [loading, setLoading] = useState(false)
   const debouncedQuery = useDebounce(query, 500)
-  const supabase = createClient()
 
   useEffect(() => {
     if (!isOpen) {
@@ -53,31 +53,55 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
 
       setLoading(true)
       try {
-        // Search profiles
-        const { data: profiles } = await supabase
-          .from("profiles")
-          .select("id, username, display_name, avatar_url")
-          .ilike("username", `%${debouncedQuery}%`)
-          .limit(5)
+        // Search profiles (Username is usually string, use search or equal/startsWith if indexed)
+        // Assuming 'username' is a String attribute. Query.search requires FullText. 
+        // We'll try Query.startsWith or Query.search depending on index. 
+        // Using Query.search for now assuming we might index it as fulltext, OR Query.startsWith which is standard for username search.
+        const profilesRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+          [Query.search("username", debouncedQuery), Query.limit(5)]
+        ).catch(() => ({ documents: [] })) // Fail safe
 
-        // Search posts (caption search)
-        const { data: posts } = await supabase
-          .from("posts")
-          .select(`
-            id,
-            image_url,
-            caption,
-            aspect_ratio,
-            profiles (
-              username
-            )
-          `)
-          .ilike("caption", `%${debouncedQuery}%`)
-          .limit(9)
+        // Search posts (caption)
+        const postsRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.POSTS,
+          [Query.search("caption", debouncedQuery), Query.limit(9)]
+        ).catch(() => ({ documents: [] }))
+
+        // Fetch profiles for posts
+        const postUserIds = [...new Set(postsRes.documents.map(p => p.user_id))]
+        let postProfiles: Record<string, any> = {}
+        if (postUserIds.length > 0) {
+          const profilesForPostsRes = await databases.listDocuments(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+            [Query.equal("$id", postUserIds)]
+          )
+          postProfiles = profilesForPostsRes.documents.reduce((acc, p) => ({ ...acc, [p.$id]: p }), {})
+        }
+
+        const mappedPosts = postsRes.documents.map(doc => ({
+          id: doc.$id,
+          image_url: doc.image_url,
+          caption: doc.caption,
+          aspect_ratio: doc.aspect_ratio || 1,
+          profiles: {
+            username: postProfiles[doc.user_id]?.username || "Unknown"
+          }
+        }))
+
+        const mappedProfiles = profilesRes.documents.map(doc => ({
+          id: doc.$id,
+          username: doc.username,
+          display_name: doc.display_name,
+          avatar_url: doc.avatar_url
+        }))
 
         setResults({
-          profiles: profiles || [],
-          posts: (posts as any[]) || [],
+          profiles: mappedProfiles,
+          posts: mappedPosts,
         })
       } catch (error) {
         console.error("Search error:", error)

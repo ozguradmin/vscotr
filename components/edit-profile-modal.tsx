@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { X, Loader2 } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useRouter } from "next/navigation"
 
 interface EditProfileModalProps {
@@ -21,7 +21,7 @@ export function EditProfileModal({ isOpen, onClose, currentProfile }: EditProfil
     const [displayName, setDisplayName] = useState(currentProfile.display_name || "")
     const [bio, setBio] = useState(currentProfile.bio || "")
     const [loading, setLoading] = useState(false)
-    const supabase = createClient()
+
     const router = useRouter()
 
     if (!isOpen) return null
@@ -31,16 +31,16 @@ export function EditProfileModal({ isOpen, onClose, currentProfile }: EditProfil
         setLoading(true)
 
         try {
-            const { error } = await supabase
-                .from("profiles")
-                .update({
+            await databases.updateDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                currentProfile.id,
+                {
                     display_name: displayName,
                     bio: bio,
                     updated_at: new Date().toISOString(),
-                })
-                .eq("id", currentProfile.id)
-
-            if (error) throw error
+                }
+            )
 
             router.refresh()
             onClose()

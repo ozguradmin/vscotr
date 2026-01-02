@@ -2,8 +2,7 @@
 
 import Link from "next/link"
 import { useRouter } from "next/navigation"
-import { createClient } from "@/lib/supabase/client"
-import { useMemo } from "react"
+import { useAuth } from "@/lib/auth-context"
 
 interface MobileMenuProps {
   isOpen: boolean
@@ -14,11 +13,10 @@ interface MobileMenuProps {
 
 export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: MobileMenuProps) {
   const router = useRouter()
-
-  const supabase = useMemo(() => createClient(), [])
+  const { logout } = useAuth()
 
   const handleLogout = async () => {
-    await supabase.auth.signOut()
+    await logout()
     router.push("/")
     onClose()
   }

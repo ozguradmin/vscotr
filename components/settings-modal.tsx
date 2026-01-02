@@ -1,9 +1,9 @@
 "use client"
 
-import { X, LogOut, Moon, Sun } from "lucide-react"
-import { createClient } from "@/lib/supabase/client"
+import { X, LogOut, Moon } from "lucide-react"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
+import { useAuth } from "@/lib/auth-context"
 
 interface SettingsModalProps {
     isOpen: boolean
@@ -11,13 +11,13 @@ interface SettingsModalProps {
 }
 
 export function SettingsModal({ isOpen, onClose }: SettingsModalProps) {
-    const supabase = createClient()
     const router = useRouter()
+    const { logout } = useAuth()
 
     if (!isOpen) return null
 
     const handleSignOut = async () => {
-        await supabase.auth.signOut()
+        await logout()
         router.refresh()
         onClose()
     }

@@ -1,18 +1,23 @@
-import { createClient } from "@/lib/supabase/server"
-import { redirect } from "next/navigation"
+"use client"
+
 import { CreateView } from "@/components/create-view"
+import { useAuth } from "@/lib/auth-context"
+import { useRouter } from "next/navigation"
+import { useEffect } from "react"
 
-export default async function OlusturPage() {
-  const supabase = await createClient()
-  const {
-    data: { user },
-  } = await supabase.auth.getUser()
+export default function OlusturPage() {
+  const { user, loading } = useAuth()
+  const router = useRouter()
 
-  if (!user) {
-    redirect("/giris")
-  }
+  useEffect(() => {
+    if (!loading && !user) {
+      router.push("/giris")
+    }
+  }, [user, loading, router])
 
-  const { data: profile } = await supabase.from("profiles").select("username").eq("id", user.id).single()
+  if (loading) return null // or spinner
 
-  return <CreateView userId={user.id} username={profile?.username || ""} />
+  if (!user) return null
+
+  return <CreateView userId={user.$id} username={user.name} />
 }

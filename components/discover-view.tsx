@@ -7,10 +7,12 @@ import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import Link from "next/link"
-import { createClient } from "@/lib/supabase/client"
 import { useRouter, usePathname } from "next/navigation"
 import { useCache } from "@/lib/cache-context"
 import { VscoImage } from "@/components/vsco-image"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { useAuth } from "@/lib/auth-context"
+import { ID, Query } from "appwrite"
 
 interface Post {
     id: string
@@ -32,7 +34,11 @@ interface DiscoverViewProps {
     currentUsername?: string | null
 }
 
-export function DiscoverView({ posts: initialPosts, currentUserId, currentUsername }: DiscoverViewProps) {
+export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
+    const { user: currentUser } = useAuth()
+    const currentUserId = currentUser?.$id
+    const currentUsername = currentUser?.name
+
     const [menuOpen, setMenuOpen] = useState(false)
     const [searchOpen, setSearchOpen] = useState(false)
     const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null)
@@ -42,7 +48,6 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
         Record<string, { liked: boolean; reposted: boolean; following: boolean }>
     >({})
 
-    const supabase = createClient()
     const router = useRouter()
     const cache = useCache()
     const cacheKey = `discover-states-${currentUserId || 'guest'}`
@@ -76,64 +81,62 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
             setIsLoading(true)
             setFetchError(null)
             try {
-                console.log("[Discover] 1. Starting client-side fetch...")
+                // 1. Fetch Posts
+                const postsResponse = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                    [
+                        Query.orderDesc("created_at"),
+                        Query.limit(50)
+                    ]
+                )
 
-                // 1. Fetch Posts via RPC (Step 9 - Hızlı Versiyon)
-                console.log("[Discover] 2. Querying posts via RPC...")
-                const { data: postsData, error: postsError } = await supabase
-                    .rpc("get_discover_posts", {
-                        p_limit: 15,
-                        p_offset: 0
-                    })
-
-                console.log("[Discover] 3. RPC result:", { count: postsData?.length, error: postsError })
-
-                if (postsError) throw postsError
-
-                if (!postsData || postsData.length === 0) {
-                    console.log("[Discover] 4. No posts found.")
+                if (postsResponse.documents.length === 0) {
                     setClientPosts([])
                     return
                 }
 
-                // 2. Profilleri çek
-                const userIds = [...new Set(postsData.map((p: any) => p.user_id))]
-                console.log("[Discover] 5. Querying profiles...")
+                // 2. Fetch Profiles (Manual Join)
+                const userIds = [...new Set(postsResponse.documents.map(d => d.user_id))]
 
-                const { data: profilesData, error: profilesError } = await supabase
-                    .from("profiles")
-                    .select("id, username, avatar_url, member_badge")
-                    .in("id", userIds)
+                const profilesResponse = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                    [Query.equal("$id", userIds)]
+                )
 
-                if (profilesError) throw profilesError
-
-                // 3. Birleştir
-                const formattedPosts = postsData.map((p: any) => ({
-                    ...p,
-                    aspect_ratio: p.aspect_ratio || 1,
-                    profiles: profilesData?.find((pr: any) => pr.id === p.user_id) || {
-                        id: p.user_id, username: 'unknown', avatar_url: null, member_badge: null
+                // 3. Map & Combine
+                const formattedPosts: Post[] = postsResponse.documents.map(doc => {
+                    const profile = profilesResponse.documents.find(p => p.$id === doc.user_id)
+                    return {
+                        id: doc.$id,
+                        image_url: doc.image_url,
+                        caption: doc.caption,
+                        aspect_ratio: doc.aspect_ratio || 1,
+                        created_at: doc.created_at || doc.$createdAt,
+                        profiles: {
+                            id: doc.user_id,
+                            username: profile?.username || "unknown",
+                            avatar_url: profile?.avatar_url || null,
+                            member_badge: profile?.member_badge || null
+                        }
                     }
-                })) as Post[]
+                })
 
-                console.log("[Discover] 6. Posts formatted. Total:", formattedPosts.length)
                 setClientPosts(formattedPosts)
 
             } catch (err: any) {
-                console.error("[Discover] CRITICAL ERROR during fetch:", err)
-                setFetchError(err.message || "Akış yüklenirken bir hata oluştu: " + JSON.stringify(err))
+                console.error("[Discover] Fetch error:", err)
+                setFetchError("Keşfet yüklenirken hata oluştu.")
             } finally {
                 setIsLoading(false)
-                console.log("[Discover] 5. Loading state set to false.")
             }
         }
 
         // Only fetch if initial posts are empty
         if (initialPosts.length === 0) {
-            console.log("[Discover] Initial posts empty, triggering client fetch.")
             fetchDiscoverPosts()
         } else {
-            console.log("[Discover] Using initial posts provided by server.")
             setIsLoading(false)
         }
     }, [initialPosts.length])
@@ -152,25 +155,41 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
 
         if (postIds.length === 0) return
 
-        const [likesResult, repostsResult, followsResult] = await Promise.all([
-            supabase.from("likes").select("post_id").eq("user_id", currentUserId!).in("post_id", postIds),
-            supabase.from("reposts").select("post_id").eq("user_id", currentUserId!).in("post_id", postIds),
-            supabase.from("follows").select("following_id").eq("follower_id", currentUserId!).in("following_id", userIds),
-        ])
+        try {
+            const [likesRes, repostsRes, followsRes] = await Promise.all([
+                databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.LIKES,
+                    [Query.equal("user_id", currentUserId!), Query.equal("post_id", postIds)]
+                ),
+                databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                    [Query.equal("user_id", currentUserId!), Query.equal("post_id", postIds)]
+                ),
+                databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                    [Query.equal("follower_id", currentUserId!), Query.equal("following_id", userIds)]
+                )
+            ])
 
-        const likedPosts = new Set(likesResult.data?.map((l) => l.post_id) || [])
-        const repostedPosts = new Set(repostsResult.data?.map((r) => r.post_id) || [])
-        const followingUsers = new Set(followsResult.data?.map((f) => f.following_id) || [])
+            const likedPosts = new Set(likesRes.documents.map(d => d.post_id))
+            const repostedPosts = new Set(repostsRes.documents.map(d => d.post_id))
+            const followingUsers = new Set(followsRes.documents.map(d => d.following_id))
 
-        const states: Record<string, { liked: boolean; reposted: boolean; following: boolean }> = {}
-        posts.forEach((post) => {
-            states[post.id] = {
-                liked: likedPosts.has(post.id),
-                reposted: repostedPosts.has(post.id),
-                following: followingUsers.has(post.profiles.id),
-            }
-        })
-        setPostStates(states)
+            const states: Record<string, { liked: boolean; reposted: boolean; following: boolean }> = {}
+            posts.forEach((post) => {
+                states[post.id] = {
+                    liked: likedPosts.has(post.id),
+                    reposted: repostedPosts.has(post.id),
+                    following: followingUsers.has(post.profiles.id),
+                }
+            })
+            setPostStates(states)
+        } catch (e) {
+            console.error("State load error", e)
+        }
     }
 
     const handleLike = async (postId: string) => {
@@ -182,13 +201,25 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
         const post = posts.find((p) => p.id === postId)
         if (!post || post.profiles.id === currentUserId) return
 
-        const currentState = postStates[postId]
+        const currentState = postStates[postId]?.liked
 
-        if (currentState?.liked) {
-            await supabase.from("likes").delete().eq("user_id", currentUserId).eq("post_id", postId)
+        if (currentState) {
+            const res = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.LIKES,
+                [Query.equal("user_id", currentUserId), Query.equal("post_id", postId)]
+            )
+            if (res.documents.length > 0) {
+                await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.LIKES, res.documents[0].$id)
+            }
             setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], liked: false } }))
         } else {
-            await supabase.from("likes").insert({ user_id: currentUserId, post_id: postId })
+            await databases.createDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.LIKES,
+                ID.unique(),
+                { user_id: currentUserId, post_id: postId }
+            )
             setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], liked: true } }))
         }
     }
@@ -202,13 +233,25 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
         const post = posts.find((p) => p.id === postId)
         if (!post || post.profiles.id === currentUserId) return
 
-        const currentState = postStates[postId]
+        const currentState = postStates[postId]?.reposted
 
-        if (currentState?.reposted) {
-            await supabase.from("reposts").delete().eq("user_id", currentUserId).eq("post_id", postId)
+        if (currentState) {
+            const res = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                [Query.equal("user_id", currentUserId), Query.equal("post_id", postId)]
+            )
+            if (res.documents.length > 0) {
+                await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.REPOSTS, res.documents[0].$id)
+            }
             setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], reposted: false } }))
         } else {
-            await supabase.from("reposts").insert({ user_id: currentUserId, post_id: postId })
+            await databases.createDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                ID.unique(),
+                { user_id: currentUserId, post_id: postId }
+            )
             setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], reposted: true } }))
         }
     }

@@ -3,7 +3,8 @@
 import Link from "next/link"
 import { VscoLogo } from "@/components/vsco-logo"
 import { useEffect, useState, useMemo } from "react"
-import { createClient } from "@/lib/supabase/client"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { Query } from "appwrite"
 
 import { VscoImage } from "@/components/vsco-image"
 
@@ -11,35 +12,40 @@ export function LandingPage() {
   const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<any | null>(null)
-  const supabase = useMemo(() => createClient(), [])
 
   useEffect(() => {
     const loadFeaturedPosts = async () => {
       try {
-        // JOIN olmadan basit query - timeout'u önlemek için
-        const { data: posts, error } = await supabase
-          .from("posts")
-          .select("id, image_url, aspect_ratio, caption, user_id")
-          .order("created_at", { ascending: false })
-          .limit(8)
+        const postsRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.POSTS,
+          [Query.orderDesc("created_at"), Query.limit(8)]
+        )
 
-        if (error) {
-          console.error('[Landing] Posts error:', error)
-          setIsLoading(false)
-          return
-        }
+        if (postsRes.documents.length > 0) {
+          // Unique users
+          const userIds = [...new Set(postsRes.documents.map(p => p.user_id))]
 
-        if (posts && posts.length > 0) {
-          // Profilleri ayrı çek
-          const userIds = [...new Set(posts.map(p => p.user_id))]
-          const { data: profiles } = await supabase
-            .from("profiles")
-            .select("id, username, avatar_url")
-            .in("id", userIds)
+          let profilesData: Record<string, any> = {}
+          if (userIds.length > 0) {
+            const profilesRes = await databases.listDocuments(
+              APPWRITE_CONFIG.DATABASE_ID,
+              APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+              [Query.equal("$id", userIds)]
+            )
+            profilesData = profilesRes.documents.reduce((acc, p) => ({ ...acc, [p.$id]: p }), {})
+          }
 
-          const postsWithProfiles = posts.map(post => ({
-            ...post,
-            profiles: profiles?.find(p => p.id === post.user_id) || null
+          const postsWithProfiles = postsRes.documents.map(post => ({
+            id: post.$id, // Map Appwrite $id to id
+            image_url: post.image_url,
+            aspect_ratio: post.aspect_ratio,
+            caption: post.caption,
+            user_id: post.user_id,
+            profiles: profilesData[post.user_id] ? {
+              username: profilesData[post.user_id].username,
+              avatar_url: profilesData[post.user_id].avatar_url
+            } : null
           }))
           setFeaturedPosts(postsWithProfiles)
         }

@@ -8,11 +8,13 @@ import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import { EditProfileModal } from "@/components/edit-profile-modal"
 import { SettingsModal } from "@/components/settings-modal"
-import { createClient } from "@/lib/supabase/client"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { useCache } from "@/lib/cache-context"
 import { VscoImage } from "@/components/vsco-image"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { useAuth } from "@/lib/auth-context"
+import { ID, Query } from "appwrite"
 
 interface Profile {
     id: string
@@ -36,19 +38,19 @@ interface ProfileViewProps {
     isOwner: boolean
     posts: Post[]
     reposts: Post[]
-    currentUserId?: string
+    currentUserId?: string // Legacy prop, used for fallback if context fails, but we rely on context now
     currentUsername?: string
     links: { id: string; label: string; url: string }[]
 }
 
 export function ProfileView({
     profile,
-    isOwner,
-    posts: initialPosts,
-    reposts: initialReposts,
-    currentUserId,
-    currentUsername,
+    links
 }: ProfileViewProps) {
+    const { user: currentUser } = useAuth()
+    const currentUserId = currentUser?.$id
+    const currentUsername = currentUser?.name // or fetch profile
+
     const [activeTab, setActiveTab] = useState<"posts" | "reposts">("posts")
     const [menuOpen, setMenuOpen] = useState(false)
     const [searchOpen, setSearchOpen] = useState(false)
@@ -60,107 +62,86 @@ export function ProfileView({
     const [touchStart, setTouchStart] = useState<number | null>(null)
     const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
-    const supabase = createClient()
     const router = useRouter()
     const cache = useCache()
     const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
+    const isOwner = currentUserId === profile.id
 
     // Client-side post fetching logic
     const [clientPosts, setClientPosts] = useState<Post[]>([])
     const [clientReposts, setClientReposts] = useState<Post[]>([])
-    const [isLoading, setIsLoading] = useState(true) // For posts
-    const [isLoadingReposts, setIsLoadingReposts] = useState(true) // For reposts
+    const [isLoading, setIsLoading] = useState(true)
+    const [isLoadingReposts, setIsLoadingReposts] = useState(true)
     const [fetchError, setFetchError] = useState<string | null>(null)
 
-    // Use client posts if initialPosts is empty
-    const currentPosts = activeTab === "posts"
-        ? (initialPosts.length > 0 ? initialPosts : clientPosts)
-        : (initialReposts.length > 0 ? initialReposts : clientReposts)
+    const currentPosts = activeTab === "posts" ? clientPosts : clientReposts
 
     useEffect(() => {
         window.scrollTo(0, 0)
         checkFollowStatus()
     }, [currentUserId, profile.id])
 
-    // Cache effect
-    useEffect(() => {
-        if (currentUserId && currentPosts.length > 0) {
-            const cached = cache.get<typeof postStates>(cacheKey)
-            if (cached && Object.keys(cached).length > 0) {
-                setPostStates(cached)
-            } else {
-                loadPostStates()
-            }
-        }
-    }, [currentUserId, currentPosts, activeTab])
-
-    // Fetching effect
+    // Fetching effect (Appwrite)
     useEffect(() => {
         const fetchProfileData = async () => {
             setIsLoading(true)
             setIsLoadingReposts(true)
             setFetchError(null)
             try {
-                console.log("[Profile] 1. Starting fetch for:", profile.id)
+                // 1. Fetch Posts
+                const postsResponse = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                    [
+                        Query.equal("user_id", profile.id),
+                        Query.orderDesc("created_at"),
+                        Query.limit(50)
+                    ]
+                )
 
-                // 1. Fetch Posts via RPC (Step 9 - Hızlı Versiyon)
-                console.log("[Profile] 2. Querying posts via RPC...")
-                const { data: postsData, error: postsError } = await supabase
-                    .rpc("get_profile_posts", {
-                        p_user_id: profile.id,
-                        p_limit: 15,
-                        p_offset: 0
-                    })
-
-                console.log("[Profile] 3. RPC result:", { count: postsData?.length, error: postsError })
-
-                if (postsError) throw postsError
-
-                if (!postsData || postsData.length === 0) {
-                    setClientPosts([])
-                    setIsLoading(false)
-                    return
-                }
-
-                // Profile bilgisi zaten prop olarak var, ekle
-                const formattedPosts: Post[] = postsData.map((p: any) => ({
-                    ...p,
-                    aspect_ratio: p.aspect_ratio || 1,
-                    profiles: profile
-                })) as unknown as Post[]
-
+                const formattedPosts: Post[] = postsResponse.documents.map((doc) => ({
+                    id: doc.$id,
+                    image_url: doc.image_url,
+                    caption: doc.caption,
+                    aspect_ratio: doc.aspect_ratio || 1,
+                    created_at: doc.created_at || doc.$createdAt
+                }))
                 setClientPosts(formattedPosts)
                 setIsLoading(false)
 
-                // 3. Fetch Reposts (Standard Query)
-                console.log("[Profile] 4. Querying reposts...")
-                const { data: repostsData, error: repostsError } = await supabase
-                    .from("reposts")
-                    .select(`
-                        post_id,
-                        created_at,
-                        posts (
-                            id, image_url, caption, aspect_ratio, created_at, user_id, order_index,
-                            profiles (id, username, avatar_url, member_badge)
-                        )
-                    `)
-                    .eq("user_id", profile.id)
-                    .order("created_at", { ascending: false })
+                // 2. Fetch Reposts
+                const repostsResponse = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                    [
+                        Query.equal("user_id", profile.id),
+                        Query.limit(50)
+                    ]
+                )
 
-                console.log("[Profile] 5. Reposts result:", { count: repostsData?.length, error: repostsError })
+                if (repostsResponse.documents.length > 0) {
+                    const postIds = repostsResponse.documents.map(d => d.post_id)
+                    const relatedPostsRes = await databases.listDocuments(
+                        APPWRITE_CONFIG.DATABASE_ID,
+                        APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                        [Query.equal("$id", postIds)]
+                    )
 
-                if (repostsData) {
-                    const formattedReposts = repostsData
-                        .filter(r => r.posts)
-                        .map(r => ({
-                            ...r.posts,
-                            profiles: r.posts.profiles || { id: "unknown", username: "unknown", avatar_url: null, member_badge: null }
-                        })) as unknown as Post[]
+                    const formattedReposts: Post[] = relatedPostsRes.documents.map(doc => ({
+                        id: doc.$id,
+                        image_url: doc.image_url,
+                        caption: doc.caption,
+                        aspect_ratio: doc.aspect_ratio || 1,
+                        created_at: doc.created_at || doc.$createdAt
+                    }))
                     setClientReposts(formattedReposts)
+                } else {
+                    setClientReposts([])
                 }
+
             } catch (err: any) {
-                console.error("[Profile] CRITICAL ERROR during fetch:", err)
-                setFetchError(err.message || "Hata: " + JSON.stringify(err))
+                console.error("[Profile] Fetch error:", err)
+                setFetchError("Veriler yüklenirken hata.")
             } finally {
                 setIsLoading(false)
                 setIsLoadingReposts(false)
@@ -170,45 +151,69 @@ export function ProfileView({
         fetchProfileData()
     }, [profile.id])
 
-    // Save to cache
+    // Load Post States (Likes/Reposts)
     useEffect(() => {
-        if (Object.keys(postStates).length > 0 && currentUserId) {
-            cache.set(cacheKey, postStates, 600)
+        if (!currentUserId || currentPosts.length === 0) return
+
+        const checkStates = async () => {
+            const postIds = currentPosts.map(p => p.id)
+            if (postIds.length === 0) return
+
+            try {
+                // Check Likes
+                const likesRes = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.LIKES,
+                    [
+                        Query.equal("user_id", currentUserId),
+                        Query.equal("post_id", postIds)
+                    ]
+                )
+                // Check Reposts
+                const repostsRes = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                    [
+                        Query.equal("user_id", currentUserId),
+                        Query.equal("post_id", postIds)
+                    ]
+                )
+
+                const likedIds = new Set(likesRes.documents.map(d => d.post_id))
+                const repostedIds = new Set(repostsRes.documents.map(d => d.post_id))
+
+                const newStates: Record<string, { liked: boolean; reposted: boolean }> = {}
+                currentPosts.forEach(post => {
+                    newStates[post.id] = {
+                        liked: likedIds.has(post.id),
+                        reposted: repostedIds.has(post.id)
+                    }
+                })
+                setPostStates(prev => ({ ...prev, ...newStates }))
+            } catch (e) {
+                console.error("State check error", e)
+            }
         }
-    }, [postStates])
+
+        checkStates()
+    }, [currentUserId, currentPosts, activeTab])
+
 
     const checkFollowStatus = async () => {
         if (!currentUserId) return
-        const { data } = await supabase
-            .from("follows")
-            .select("*")
-            .eq("follower_id", currentUserId)
-            .eq("following_id", profile.id)
-            .single()
-        setIsFollowing(!!data)
-    }
-
-    const loadPostStates = async () => {
-        if (!currentUserId || currentPosts.length === 0) return
-
-        const postIds = currentPosts.map((p) => p.id)
-
-        const [likesResult, repostsResult] = await Promise.all([
-            supabase.from("likes").select("post_id").eq("user_id", currentUserId).in("post_id", postIds),
-            supabase.from("reposts").select("post_id").eq("user_id", currentUserId).in("post_id", postIds),
-        ])
-
-        const likedPosts = new Set(likesResult.data?.map((l) => l.post_id) || [])
-        const repostedPosts = new Set(repostsResult.data?.map((r) => r.post_id) || [])
-
-        const states: Record<string, { liked: boolean; reposted: boolean }> = {}
-        currentPosts.forEach((post) => {
-            states[post.id] = {
-                liked: likedPosts.has(post.id),
-                reposted: repostedPosts.has(post.id),
-            }
-        })
-        setPostStates((prev) => ({ ...prev, ...states }))
+        try {
+            const res = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                [
+                    Query.equal("follower_id", currentUserId),
+                    Query.equal("following_id", profile.id)
+                ]
+            )
+            setIsFollowing(res.total > 0)
+        } catch (e) {
+            console.error("Follow check error", e)
+        }
     }
 
     const handleFollow = async () => {
@@ -218,48 +223,79 @@ export function ProfileView({
         }
 
         if (isFollowing) {
-            await supabase.from("follows").delete().eq("follower_id", currentUserId).eq("following_id", profile.id)
-            setIsFollowing(false)
+            // Unfollow: Find doc first then delete (inefficient but standard in simple api)
+            const res = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                [
+                    Query.equal("follower_id", currentUserId),
+                    Query.equal("following_id", profile.id)
+                ]
+            )
+            if (res.documents.length > 0) {
+                await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.FOLLOWS, res.documents[0].$id)
+                setIsFollowing(false)
+            }
         } else {
-            await supabase.from("follows").insert({
-                follower_id: currentUserId,
-                following_id: profile.id,
-            })
+            await databases.createDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                ID.unique(),
+                { follower_id: currentUserId, following_id: profile.id }
+            )
             setIsFollowing(true)
         }
     }
 
     const handleLike = async (postId: string) => {
-        if (!currentUserId) {
-            router.push("/giris")
-            return
-        }
+        if (!currentUserId) return router.push("/giris")
 
-        const currentState = postStates[postId]
+        const currentState = postStates[postId]?.liked
 
-        if (currentState?.liked) {
-            await supabase.from("likes").delete().eq("user_id", currentUserId).eq("post_id", postId)
-            setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], liked: false } }))
+        if (currentState) {
+            const res = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.LIKES,
+                [Query.equal("user_id", currentUserId), Query.equal("post_id", postId)]
+            )
+            if (res.documents.length > 0) {
+                await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.LIKES, res.documents[0].$id)
+            }
+            setPostStates(prev => ({ ...prev, [postId]: { ...prev[postId], liked: false } }))
         } else {
-            await supabase.from("likes").insert({ user_id: currentUserId, post_id: postId })
-            setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], liked: true } }))
+            await databases.createDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.LIKES,
+                ID.unique(),
+                { user_id: currentUserId, post_id: postId }
+            )
+            setPostStates(prev => ({ ...prev, [postId]: { ...prev[postId], liked: true } }))
         }
     }
 
     const handleRepost = async (postId: string) => {
-        if (!currentUserId) {
-            router.push("/giris")
-            return
-        }
+        if (!currentUserId) return router.push("/giris")
 
-        const currentState = postStates[postId]
+        const currentState = postStates[postId]?.reposted
 
-        if (currentState?.reposted) {
-            await supabase.from("reposts").delete().eq("user_id", currentUserId).eq("post_id", postId)
-            setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], reposted: false } }))
+        if (currentState) {
+            const res = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                [Query.equal("user_id", currentUserId), Query.equal("post_id", postId)]
+            )
+            if (res.documents.length > 0) {
+                await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.REPOSTS, res.documents[0].$id)
+            }
+            setPostStates(prev => ({ ...prev, [postId]: { ...prev[postId], reposted: false } }))
         } else {
-            await supabase.from("reposts").insert({ user_id: currentUserId, post_id: postId })
-            setPostStates((prev) => ({ ...prev, [postId]: { ...prev[postId], reposted: true } }))
+            await databases.createDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                ID.unique(),
+                { user_id: currentUserId, post_id: postId }
+            )
+            setPostStates(prev => ({ ...prev, [postId]: { ...prev[postId], reposted: true } }))
         }
     }
 

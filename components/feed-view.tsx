@@ -6,7 +6,8 @@ import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
-import { createClient } from "@/lib/supabase/client"
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { ID, Query } from "appwrite"
 import { useRouter, usePathname } from "next/navigation"
 import { useCache } from "@/lib/cache-context"
 import Link from "next/link"
@@ -41,7 +42,7 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
   const router = useRouter()
   const pathname = usePathname()
   const mainRef = useRef<HTMLDivElement>(null)
-  const supabase = createClient()
+
   const cache = useCache()
   const cacheKey = `feed-states-${currentUserId}`
 
@@ -70,29 +71,53 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
 
   const loadPostStates = async () => {
     const postIds = posts.map((p) => p.id)
+    if (postIds.length === 0) return
 
-    const [likesResult, repostsResult, likeCountsResult] = await Promise.all([
-      supabase.from("likes").select("post_id").eq("user_id", currentUserId).in("post_id", postIds),
-      supabase.from("reposts").select("post_id").eq("user_id", currentUserId).in("post_id", postIds),
-      supabase.from("likes").select("post_id").in("post_id", postIds),
-    ])
+    try {
+      const [likesRes, repostsRes, likeCountsRes] = await Promise.all([
+        databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          [Query.equal("user_id", currentUserId), Query.equal("post_id", postIds)]
+        ),
+        databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+          [Query.equal("user_id", currentUserId), Query.equal("post_id", postIds)]
+        ),
+        // Note: Appwrite doesn't support "count group by" easily in client SDK without big queries. 
+        // We'll iterate individual likes or fetch all likes for these posts. 
+        // For scalability, we should ideally have a counter on the post document, but for now we fetch.
+        // OPTIMIZATION: Only fetch 'likesCount' if needed. The original code fetched ALL likes for these posts? 
+        // Yes: `supabase.from("likes").select("post_id").in("post_id", postIds)` -> potentially HUGE response.
+        // We will skip like counts for now to save bandwidth or use a better approach later.
+        // Or we just fetch likes for these posts (limit 100/page).
+        databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          [Query.equal("post_id", postIds), Query.limit(1000)]
+        )
+      ])
 
-    const likedPosts = new Set(likesResult.data?.map((l) => l.post_id) || [])
-    const repostedPosts = new Set(repostsResult.data?.map((r) => r.post_id) || [])
-    const likeCountMap: Record<string, number> = {}
-    likeCountsResult.data?.forEach((l) => {
-      likeCountMap[l.post_id] = (likeCountMap[l.post_id] || 0) + 1
-    })
+      const likedPosts = new Set(likesRes.documents.map((l) => l.post_id))
+      const repostedPosts = new Set(repostsRes.documents.map((r) => r.post_id))
+      const likeCountMap: Record<string, number> = {}
+      likeCountsRes.documents.forEach((l) => {
+        likeCountMap[l.post_id] = (likeCountMap[l.post_id] || 0) + 1
+      })
 
-    const states: Record<string, { liked: boolean; reposted: boolean; likesCount: number }> = {}
-    posts.forEach((post) => {
-      states[post.id] = {
-        liked: likedPosts.has(post.id),
-        reposted: repostedPosts.has(post.id),
-        likesCount: likeCountMap[post.id] || 0,
-      }
-    })
-    setPostStates(states)
+      const states: Record<string, { liked: boolean; reposted: boolean; likesCount: number }> = {}
+      posts.forEach((post) => {
+        states[post.id] = {
+          liked: likedPosts.has(post.id),
+          reposted: repostedPosts.has(post.id),
+          likesCount: likeCountMap[post.id] || 0,
+        }
+      })
+      setPostStates(states)
+    } catch (error) {
+      console.error("Feed state load error", error)
+    }
   }
 
   const handleRepost = async (postId: string) => {
@@ -103,18 +128,34 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
 
     const currentState = postStates[postId]
 
-    if (currentState?.reposted) {
-      await supabase.from("reposts").delete().eq("user_id", currentUserId).eq("post_id", postId)
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], reposted: false },
-      }))
-    } else {
-      await supabase.from("reposts").insert({ user_id: currentUserId, post_id: postId })
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], reposted: true },
-      }))
+    try {
+      if (currentState?.reposted) {
+        const res = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+          [Query.equal("user_id", currentUserId), Query.equal("post_id", postId)]
+        )
+        if (res.documents.length > 0) {
+          await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.REPOSTS, res.documents[0].$id)
+        }
+        setPostStates((prev) => ({
+          ...prev,
+          [postId]: { ...prev[postId], reposted: false },
+        }))
+      } else {
+        await databases.createDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+          ID.unique(),
+          { user_id: currentUserId, post_id: postId }
+        )
+        setPostStates((prev) => ({
+          ...prev,
+          [postId]: { ...prev[postId], reposted: true },
+        }))
+      }
+    } catch (e) {
+      console.error("Repost error", e)
     }
   }
 
@@ -126,18 +167,34 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
 
     const currentState = postStates[postId]
 
-    if (currentState?.liked) {
-      await supabase.from("likes").delete().eq("user_id", currentUserId).eq("post_id", postId)
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], liked: false, likesCount: Math.max(0, prev[postId].likesCount - 1) },
-      }))
-    } else {
-      await supabase.from("likes").insert({ user_id: currentUserId, post_id: postId })
-      setPostStates((prev) => ({
-        ...prev,
-        [postId]: { ...prev[postId], liked: true, likesCount: (prev[postId]?.likesCount || 0) + 1 },
-      }))
+    try {
+      if (currentState?.liked) {
+        const res = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          [Query.equal("user_id", currentUserId), Query.equal("post_id", postId)]
+        )
+        if (res.documents.length > 0) {
+          await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.LIKES, res.documents[0].$id)
+        }
+        setPostStates((prev) => ({
+          ...prev,
+          [postId]: { ...prev[postId], liked: false, likesCount: Math.max(0, prev[postId].likesCount - 1) },
+        }))
+      } else {
+        await databases.createDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          ID.unique(),
+          { user_id: currentUserId, post_id: postId }
+        )
+        setPostStates((prev) => ({
+          ...prev,
+          [postId]: { ...prev[postId], liked: true, likesCount: (prev[postId]?.likesCount || 0) + 1 },
+        }))
+      }
+    } catch (e) {
+      console.error("Like error", e)
     }
   }
 

@@ -7,8 +7,7 @@ import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import Link from "next/link"
-import { useRouter, usePathname } from "next/navigation"
-import { useCache } from "@/lib/cache-context"
+import { useRouter } from "next/navigation"
 import { VscoImage } from "@/components/vsco-image"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
@@ -49,8 +48,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
     >({})
 
     const router = useRouter()
-    const cache = useCache()
-    const cacheKey = `discover-states-${currentUserId || 'guest'}`
 
     // Client-side local state
     const [clientPosts, setClientPosts] = useState<Post[]>([])
@@ -65,23 +62,16 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
 
     useEffect(() => {
         if (currentUserId && posts.length > 0) {
-            // Önce cache'den yükle
-            const cached = cache.get<typeof postStates>(cacheKey)
-            if (cached && Object.keys(cached).length > 0) {
-                setPostStates(cached)
-            } else {
-                loadPostStates()
-            }
+            loadPostStates()
         }
-    }, [currentUserId, posts.length]) // Added posts.length to dependency to refresh states when posts load
+    }, [currentUserId, posts.length])
 
-    // Fetching Logic with Verbose Logging
+    // Fetching Logic
     useEffect(() => {
         const fetchDiscoverPosts = async () => {
             setIsLoading(true)
             setFetchError(null)
             try {
-                // 1. Fetch Posts
                 const postsResponse = await databases.listDocuments(
                     APPWRITE_CONFIG.DATABASE_ID,
                     APPWRITE_CONFIG.COLLECTIONS.POSTS,
@@ -96,7 +86,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     return
                 }
 
-                // 2. Fetch Profiles (Manual Join)
                 const userIds = [...new Set(postsResponse.documents.map(d => d.user_id))]
 
                 const profilesResponse = await databases.listDocuments(
@@ -105,7 +94,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     [Query.equal("$id", userIds)]
                 )
 
-                // 3. Map & Combine
                 const formattedPosts: Post[] = postsResponse.documents.map(doc => {
                     const profile = profilesResponse.documents.find(p => p.$id === doc.user_id)
                     return {
@@ -133,7 +121,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
             }
         }
 
-        // Only fetch if initial posts are empty
         if (initialPosts.length === 0) {
             fetchDiscoverPosts()
         } else {
@@ -141,13 +128,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
         }
     }, [initialPosts.length])
 
-
-    // Post states değiştiğinde cache'e kaydet
-    useEffect(() => {
-        if (Object.keys(postStates).length > 0 && currentUserId) {
-            cache.set(cacheKey, postStates, 600) // 10 dakika cache
-        }
-    }, [postStates])
 
     const loadPostStates = async () => {
         const postIds = posts.map((p) => p.id)
@@ -199,6 +179,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
         }
 
         const post = posts.find((p) => p.id === postId)
+        // Kendi postunu beğenemez
         if (!post || post.profiles.id === currentUserId) return
 
         const currentState = postStates[postId]?.liked
@@ -231,6 +212,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
         }
 
         const post = posts.find((p) => p.id === postId)
+        // Kendi postunu repostlayamaz
         if (!post || post.profiles.id === currentUserId) return
 
         const currentState = postStates[postId]?.reposted
@@ -303,13 +285,16 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
         return () => window.removeEventListener("keydown", handleKeyDown)
     }, [selectedPostIndex, posts.length])
 
+    // Is the selected post owned by current user?
+    const isOwnPost = selectedPost && currentUserId && selectedPost.profiles.id === currentUserId
+
     return (
         <div className="min-h-screen bg-background pb-16 md:pb-0">
             <header className="sticky top-0 z-50 bg-background border-b border-border">
                 <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
                     <Link href="/" className="flex items-center gap-2">
                         <VscoLogo className="w-8 h-8" />
-                        <span className="font-semibold">VSCO TR 7</span>
+                        <span className="font-semibold">VSCO TR 9</span>
                     </Link>
                     <div className="flex items-center gap-1">
                         <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
@@ -351,6 +336,12 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                     aspectRatio={post.aspect_ratio || 1}
                                     className="w-full h-full"
                                 />
+                                {/* Liked/Reposted indicators */}
+                                {postStates[post.id]?.liked && (
+                                    <div className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full">
+                                        <Heart className="w-3 h-3 fill-current" />
+                                    </div>
+                                )}
                                 <div className="absolute bottom-0 left-0 right-0 p-2 bg-gradient-to-t from-black/70 to-transparent opacity-0 group-hover:opacity-100 md:opacity-100 transition-opacity">
                                     <Link
                                         href={`/${post.profiles.username}`}
@@ -381,7 +372,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                         {fetchError ? (
                             <div className="text-red-500">
                                 <p>{fetchError}</p>
-                                <div className="text-xs text-muted-foreground mt-1 max-w-xs mx-auto overflow-hidden text-ellipsis">{fetchError}</div>
                                 <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
                             </div>
                         ) : (
@@ -391,6 +381,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                 )}
             </main>
 
+            {/* Full Screen Image Modal - NATIVE IMG for reliability */}
             {selectedPost && selectedPostIndex !== null && (
                 <div
                     className="fixed inset-0 z-50 bg-background flex flex-col"
@@ -398,24 +389,19 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     onTouchMove={onTouchMove}
                     onTouchEnd={onTouchEnd}
                 >
-                    {/* Modal Header */}
                     <div className="flex items-center justify-end h-14 px-4 border-b border-border flex-shrink-0">
                         <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full">
                             <X className="w-6 h-6" />
                         </button>
                     </div>
 
-                    {/* Modal Content */}
                     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
-                        <div className="relative w-full h-full max-h-[80vh]">
-                            <VscoImage
+                        <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
+                            {/* Native img tag for reliable rendering */}
+                            <img
                                 src={selectedPost.image_url || "/placeholder.svg"}
                                 alt={selectedPost.caption || ""}
-                                layout="fill"
-                                objectFit="contain"
-                                className="bg-transparent"
-                                quality={90}
-                                priority
+                                className="max-w-full max-h-full object-contain"
                             />
                         </div>
 
@@ -438,7 +424,6 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     </div>
 
                     <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
-                        {/* User info at bottom left */}
                         <div className="p-4 flex items-start justify-between gap-4">
                             <Link
                                 href={`/${selectedPost.profiles.username}`}
@@ -446,10 +431,10 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                             >
                                 <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
                                     {selectedPost.profiles.avatar_url ? (
-                                        <VscoImage
+                                        <img
                                             src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
                                             alt=""
-                                            className="w-full h-full"
+                                            className="w-full h-full object-cover"
                                         />
                                     ) : (
                                         <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
@@ -468,8 +453,8 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                 </div>
                             </Link>
 
-                            {/* Like & Repost buttons at bottom right */}
-                            {currentUserId && selectedPost.profiles.id !== currentUserId && (
+                            {/* Like & Repost - Only if NOT own post */}
+                            {currentUserId && !isOwnPost && (
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     <button
                                         onClick={() => handleLike(selectedPost.id)}

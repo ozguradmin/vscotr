@@ -166,19 +166,24 @@ export function SettingsView({
       ))
 
       if (links.length > 0) {
-        await Promise.all(links.map((link, index) =>
-          databases.createDocument(
+        await Promise.all(links.filter(l => l.url && l.url.trim()).map((link, index) => {
+          // Ensure URL has protocol for Appwrite validation
+          let url = link.url.trim()
+          if (url && !url.startsWith('http://') && !url.startsWith('https://')) {
+            url = 'https://' + url
+          }
+          return databases.createDocument(
             APPWRITE_CONFIG.DATABASE_ID,
             APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS,
             ID.unique(),
             {
               profile_id: userId,
               label: link.label || null,
-              url: link.url,
+              url: url,
               order_index: index
             }
           )
-        ))
+        }))
       }
 
       showToast("Profil başarıyla kaydedildi")
@@ -372,7 +377,7 @@ export function SettingsView({
       {/* Header */}
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 max-w-4xl mx-auto">
-          <Link href={profile?.username ? `/ ${profile.username} ` : "/"} className="flex items-center gap-2">
+          <Link href={profile?.username ? `/${profile.username.trim()}` : "/"} className="flex items-center gap-2">
             <ArrowLeft className="w-5 h-5" />
             <VscoLogo className="w-8 h-8" />
           </Link>

@@ -263,7 +263,7 @@ export function CreateView({ userId, username }: CreateViewProps) {
   }
 
   return (
-    <div className="min-h-screen bg-background flex flex-col">
+    <div className="min-h-screen bg-background flex flex-col overflow-x-hidden">
       <header className="sticky top-0 z-50 bg-background border-b border-border">
         <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
           <Link href="/akis" className="flex items-center gap-2">

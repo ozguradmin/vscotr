@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin, Shuffle, Filter, Plus, Trash2, Link2 } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
@@ -141,8 +141,8 @@ export function ProfileView({
     const [selectedPostIndex, setSelectedPostIndex] = useState<number | null>(null)
     const [isFollowing, setIsFollowing] = useState(false)
     const [postStates, setPostStates] = useState<Record<string, { liked: boolean; reposted: boolean }>>({})
-    const [touchStart, setTouchStart] = useState<number | null>(null)
-    const [touchEnd, setTouchEnd] = useState<number | null>(null)
+    const touchStart = useRef<number | null>(null)
+    const touchEnd = useRef<number | null>(null)
 
     // Client-side post fetching logic
     const [clientPosts, setClientPosts] = useState<Post[]>([])
@@ -534,15 +534,15 @@ export function ProfileView({
 
     const minSwipeDistance = 50
     const onTouchStart = (e: React.TouchEvent) => {
-        setTouchEnd(null)
-        setTouchStart(e.targetTouches[0].clientX)
+        touchEnd.current = null
+        touchStart.current = e.targetTouches[0].clientX
     }
     const onTouchMove = (e: React.TouchEvent) => {
-        setTouchEnd(e.targetTouches[0].clientX)
+        touchEnd.current = e.targetTouches[0].clientX
     }
     const onTouchEnd = () => {
-        if (!touchStart || !touchEnd) return
-        const distance = touchStart - touchEnd
+        if (!touchStart.current || !touchEnd.current) return
+        const distance = touchStart.current - touchEnd.current
         const isLeftSwipe = distance > minSwipeDistance
         const isRightSwipe = distance < -minSwipeDistance
         if (isLeftSwipe) navigatePost("next")

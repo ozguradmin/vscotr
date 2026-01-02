@@ -1,11 +1,20 @@
--- Index Durumunu Kontrol Et
-SELECT schemaname, tablename, indexname, indexdef
-FROM pg_indexes
-WHERE tablename = 'posts'
-ORDER BY indexname;
+-- DETAYLI INDEX ANALİZİ
+-- Bu script indexlerin sadece "var olup olmadığını" değil, 
+-- aynı zamanda "geçerli" (valid) olup olmadığını da kontrol eder.
 
--- Aktif ve Kilitli Sorguları Göster (Durum Analizi)
-SELECT pid, state, query, age(clock_timestamp(), query_start) as duration
-FROM pg_stat_activity
-WHERE state != 'idle'
-ORDER BY duration DESC;
+SELECT
+    t.relname AS table_name,
+    i.relname AS index_name,
+    idx.indisvalid AS is_valid, -- BURASI ÖNEMLİ: 't' (true) olmalı
+    idx.indisready AS is_ready, -- BURASI ÖNEMLİ: 't' (true) olmalı
+    pg_get_indexdef(idx.indexrelid) AS index_definition
+FROM
+    pg_class t,
+    pg_class i,
+    pg_index idx
+WHERE
+    t.oid = idx.indrelid
+    AND i.oid = idx.indexrelid
+    AND t.relname = 'posts'
+ORDER BY
+    is_valid, index_name;

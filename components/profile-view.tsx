@@ -105,12 +105,16 @@ export function ProfileView({
 
                 // 1. Fetch Posts
                 console.log("[Profile] 2. Querying posts...")
+                // 1. Fetch Posts (RPC ile - Çok daha hızlı)
+                console.log("[Profile] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
-                    .from("posts")
-                    .select("id, image_url, caption, aspect_ratio, order_index, user_id, created_at")
-                    .eq("user_id", profile.id)
-                    .order("created_at", { ascending: false }) // SORGULAMA DEĞİŞTİRİLDİ: 'order_index' yerine 'created_at' (Index garantisi için)
-                    .limit(15)
+                    .rpc("get_profile_posts", {
+                        p_user_id: profile.id,
+                        p_limit: 15,
+                        p_offset: 0
+                    })
+                // RPC direct response matches our interface
+                // No need for .select() or .order() here as it's in the SQL function
 
                 console.log("[Profile] 3. Posts result:", { count: postsData?.length, error: postsError })
 

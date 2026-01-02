@@ -78,15 +78,15 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
             try {
                 console.log("[Discover] 1. Starting client-side fetch...")
 
-                // 1. Fetch Posts
-                console.log("[Discover] 2. Querying posts table...")
+                // 1. Fetch Posts via RPC
+                console.log("[Discover] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
-                    .from("posts")
-                    .select("id, image_url, caption, aspect_ratio, user_id, created_at")
-                    .order("created_at", { ascending: false })
-                    .limit(15)
+                    .rpc("get_discover_posts", {
+                        p_limit: 15,
+                        p_offset: 0
+                    })
 
-                console.log("[Discover] 3. Posts query result:", { count: postsData?.length, error: postsError })
+                console.log("[Discover] 3. RPC result:", { count: postsData?.length, error: postsError })
 
                 if (postsError) throw postsError
 

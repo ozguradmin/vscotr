@@ -103,16 +103,16 @@ export function ProfileView({
             try {
                 console.log("[Profile] 1. Starting fetch for:", profile.id)
 
-                // 1. Fetch Posts via Simple RPC (Step 9 - Fast & Reliable)
-                console.log("[Profile] 2. Querying posts via RPC...")
+                // 1. Fetch Posts via DIRECT TABLE QUERY (RPC bypass - en güvenilir yol)
+                console.log("[Profile] 2. Querying posts directly from table...")
                 const { data: postsData, error: postsError } = await supabase
-                    .rpc("get_profile_posts", {
-                        p_user_id: profile.id,
-                        p_limit: 15,
-                        p_offset: 0
-                    })
+                    .from("posts")
+                    .select("*")
+                    .eq("user_id", profile.id)
+                    .order("created_at", { ascending: false })
+                    .limit(15)
 
-                console.log("[Profile] 3. RPC result:", { count: postsData?.length, error: postsError })
+                console.log("[Profile] 3. Direct query result:", { count: postsData?.length, error: postsError })
 
                 if (postsError) throw postsError
 
@@ -122,23 +122,15 @@ export function ProfileView({
                     return
                 }
 
-                // 2. Map flat RPC data to nested structure using the PROP profile
-                // This is instant because we already have the profile data!
+                // 2. Add profile data to posts (we already have it from props!)
                 const formattedPosts: Post[] = postsData.map((p: any) => ({
-                    id: p.id,
-                    image_url: p.image_url,
-                    caption: p.caption,
+                    ...p,
                     aspect_ratio: p.aspect_ratio || 1,
-                    created_at: p.created_at,
-                    user_id: p.user_id,
-                    order_index: p.order_index,
-                    profiles: profile // Use the prop directly! No fetch needed.
+                    profiles: profile
                 })) as unknown as Post[]
-                // Note: Casting to unknown then Post because 'profile' prop type might slightly differ from 'Post.profiles' 
-                // if strict types are checked, but they should match in practice (id, username, avatar_url, member_badge).
 
                 setClientPosts(formattedPosts)
-                setIsLoading(false) // Show immediately!
+                setIsLoading(false)
 
                 // 3. Fetch Reposts (Standard Query)
                 console.log("[Profile] 4. Querying reposts...")

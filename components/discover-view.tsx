@@ -78,55 +78,36 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
             try {
                 console.log("[Discover] 1. Starting client-side fetch...")
 
-                // 1. Fetch Posts via Simple RPC (Step 9)
-                console.log("[Discover] 2. Querying posts via RPC...")
+                // 1. Fetch Posts via DIRECT TABLE QUERY (RPC bypass - en güvenilir yol)
+                console.log("[Discover] 2. Querying posts directly from table...")
                 const { data: postsData, error: postsError } = await supabase
-                    .rpc("get_discover_posts", {
-                        p_limit: 15,
-                        p_offset: 0
-                    })
+                    .from("posts")
+                    .select(`
+                        *,
+                        profiles (id, username, avatar_url, member_badge)
+                    `)
+                    .order("created_at", { ascending: false })
+                    .limit(15)
 
-                console.log("[Discover] 3. RPC result:", { count: postsData?.length, error: postsError })
+                console.log("[Discover] 3. Direct query result:", { count: postsData?.length, error: postsError })
 
                 if (postsError) throw postsError
 
                 if (!postsData || postsData.length === 0) {
-                    console.log("[Discover] 4. No posts found in response.")
+                    console.log("[Discover] 4. No posts found.")
                     setClientPosts([])
                     return
                 }
 
-                // 2. Fetch Profiles for these posts
-                const userIds = [...new Set(postsData.map((p: any) => p.user_id))]
-                console.log("[Discover] 5. Querying profiles for userIds:", userIds)
-
-                const { data: profilesData, error: profilesError } = await supabase
-                    .from("profiles")
-                    .select("id, username, avatar_url, member_badge")
-                    .in("id", userIds)
-
-                console.log("[Discover] 6. Profiles query result:", { count: profilesData?.length, error: profilesError })
-
-                if (profilesError) throw profilesError
-
-                // 3. Merge data
-                const mergedPosts = postsData.map((post: any) => ({
-                    id: post.id,
-                    image_url: post.image_url,
-                    caption: post.caption,
-                    aspect_ratio: post.aspect_ratio || 1,
-                    created_at: post.created_at,
-                    user_id: post.user_id,
-                    profiles: profilesData?.find(p => p.id === post.user_id) || {
-                        id: post.user_id,
-                        username: 'unknown',
-                        avatar_url: null,
-                        member_badge: null
-                    }
+                // 2. Format posts
+                const formattedPosts = postsData.map((p: any) => ({
+                    ...p,
+                    aspect_ratio: p.aspect_ratio || 1,
+                    profiles: p.profiles || { id: p.user_id, username: 'unknown', avatar_url: null, member_badge: null }
                 })) as Post[]
 
-                console.log("[Discover] 7. Merge complete, updating state. Total posts:", mergedPosts.length)
-                setClientPosts(mergedPosts)
+                console.log("[Discover] 4. Posts formatted. Total:", formattedPosts.length)
+                setClientPosts(formattedPosts)
 
             } catch (err: any) {
                 console.error("[Discover] CRITICAL ERROR during fetch:", err)

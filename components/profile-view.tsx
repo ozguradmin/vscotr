@@ -76,8 +76,6 @@ export function ProfileView({
   const cache = useCache()
   const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
 
-  const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
-
   useEffect(() => {
     window.scrollTo(0, 0)
     checkFollowStatus()

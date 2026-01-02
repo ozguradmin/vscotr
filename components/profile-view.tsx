@@ -93,17 +93,7 @@ export function ProfileView({
     }
   }, [currentUserId, currentPosts, activeTab])
 
-  useEffect(() => {
-    if (currentUserId && currentPosts.length > 0) {
-      // Load from cache first
-      const cached = cache.get<typeof postStates>(cacheKey)
-      if (cached && Object.keys(cached).length > 0) {
-        setPostStates(cached)
-      } else {
-        loadPostStates()
-      }
-    }
-  }, [currentUserId, currentPosts, activeTab])
+
 
   // Client-side post fetching
   const [clientPosts, setClientPosts] = useState<Post[]>([])

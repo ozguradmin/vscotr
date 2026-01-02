@@ -78,7 +78,7 @@ export function DiscoverView({ posts: initialPosts, currentUserId, currentUserna
             try {
                 console.log("[Discover] 1. Starting client-side fetch...")
 
-                // 1. Fetch Posts via RPC (Step 9 - Çalışan Versiyon)
+                // 1. Fetch Posts via RPC (Step 9 - Hızlı Versiyon)
                 console.log("[Discover] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
                     .rpc("get_discover_posts", {

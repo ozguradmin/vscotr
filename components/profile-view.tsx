@@ -103,7 +103,7 @@ export function ProfileView({
             try {
                 console.log("[Profile] 1. Starting fetch for:", profile.id)
 
-                // 1. Fetch Posts via RPC (Step 9 - Çalışan Versiyon)
+                // 1. Fetch Posts via RPC (Step 9 - Hızlı Versiyon)
                 console.log("[Profile] 2. Querying posts via RPC...")
                 const { data: postsData, error: postsError } = await supabase
                     .rpc("get_profile_posts", {

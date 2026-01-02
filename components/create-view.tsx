@@ -63,6 +63,7 @@ const presets = [
 export function CreateView({ userId, username }: CreateViewProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const { currentProfile, user } = useAuth() // Added useAuth destructuring
   const [image, setImage] = useState<string | null>(null)
   const [imageFile, setImageFile] = useState<File | null>(null)
   const [aspectRatio, setAspectRatio] = useState(1)

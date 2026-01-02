@@ -141,16 +141,39 @@ export function LandingPage() {
                 ? featuredPosts.map((post) => (
                   <button
                     key={post.id}
-                    onClick={() => setSelectedPost(post)}
-                    className="aspect-square block group"
-                  >
-                    <VscoImage
-                      src={post.image_url || "/placeholder.svg"}
-                      alt=""
-                      aspectRatio={post.aspect_ratio || 1}
-                      className="w-full h-full"
-                    />
-                  </button>
+                  <div key={post.id} className="relative group break-inside-avoid mb-4">
+                    <div
+                      className="relative overflow-hidden rounded-lg cursor-pointer"
+                      onClick={() => setSelectedPost(post)}
+                    >
+                      <img
+                        src={post.image_url || "/placeholder.svg"}
+                        alt={post.caption || "Community photo"}
+                        className="w-full h-auto transform transition-transform duration-500 group-hover:scale-105"
+                        loading="lazy"
+                      />
+                      <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
+                    </div>
+
+                    <div className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
+                      {/* This container prevents clicking on user from triggering modal if we handled bubbling, but here separate links are better below */}
+                    </div>
+
+                    {/* User Link Overlay - Clickable */}
+                    <Link
+                      href={`/${post.profiles?.username}`}
+                      className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:opacity-100"
+                    >
+                      <div className="w-6 h-6 rounded-full overflow-hidden bg-muted">
+                        <img
+                          src={post.profiles?.avatar_url || "/placeholder.svg"}
+                          alt={post.profiles?.username}
+                          className="w-full h-full object-cover"
+                        />
+                      </div>
+                      <span className="text-white text-sm font-medium drop-shadow-md hover:underline">{post.profiles?.username}</span>
+                    </Link>
+                  </div>
                 ))
                 : Array.from({ length: 8 }).map((_, i) => (
                   <div key={i} className="aspect-square bg-muted flex items-center justify-center text-muted-foreground text-xs">
@@ -179,44 +202,51 @@ export function LandingPage() {
         </div>
       </footer>
 
+      {/* Selected Post Modal */}
       {selectedPost && (
         <div
-          className="fixed inset-0 z-50 bg-black/90 flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/95 backdrop-blur-md flex items-center justify-center p-4 animate-in fade-in duration-200"
           onClick={() => setSelectedPost(null)}
         >
-          <div className="relative max-w-4xl w-full h-full flex flex-col justify-center" onClick={(e) => e.stopPropagation()}>
-            <div className="relative w-full h-[80vh]">
-              <VscoImage
-                src={selectedPost.image_url || "/placeholder.svg"}
-                alt={selectedPost.caption || ""}
-                layout="fill"
-                objectFit="contain"
-                className="bg-transparent"
-                quality={90}
-              />
-            </div>
-            {selectedPost.profiles && (
-              <div className="absolute bottom-4 left-4 flex items-center gap-2 bg-black/70 backdrop-blur-sm px-3 py-2 rounded-lg z-10">
-                {selectedPost.profiles.avatar_url && (
-                  <div className="w-8 h-8 rounded-full overflow-hidden relative">
-                    <VscoImage
-                      src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
-                      alt=""
-                      className="w-full h-full"
-                    />
-                  </div>
-                )}
-                <span className="text-white text-sm font-medium">{selectedPost.profiles.username}</span>
-              </div>
-            )}
+          <div
+            className="relative w-full max-w-5xl max-h-[90vh] flex flex-col items-center justify-center pointer-events-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close Button */}
             <button
               onClick={() => setSelectedPost(null)}
-              className="absolute top-4 right-4 p-2 bg-black/70 backdrop-blur-sm hover:bg-black/90 rounded-full text-white z-10"
+              className="absolute -top-12 right-0 p-2 text-white/80 hover:text-white transition-colors"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
-              </svg>
+              <X className="w-8 h-8" />
             </button>
+
+            <div className="relative w-full h-full flex items-center justify-center">
+              <img
+                src={selectedPost.image_url || "/placeholder.svg"}
+                alt={selectedPost.caption || ""}
+                className="max-w-full max-h-[85vh] object-contain rounded-sm shadow-2xl"
+              />
+            </div>
+
+            {/* Post Details / User Info in Modal */}
+            <div className="absolute bottom-[-3rem] left-0 flex items-center gap-3 text-white">
+              <Link href={`/${selectedPost.profiles?.username}`} className="flex items-center gap-2 hover:opacity-80">
+                <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-800">
+                  <img
+                    src={selectedPost.profiles?.avatar_url || "/placeholder.svg"}
+                    alt=""
+                    className="w-full h-full object-cover"
+                  />
+                </div>
+                <span className="font-medium text-lg">{selectedPost.profiles?.username}</span>
+              </Link>
+              {selectedPost.caption && (
+                <>
+                  <span className="text-white/50">•</span>
+                  <span className="text-white/90">{selectedPost.caption}</span>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}

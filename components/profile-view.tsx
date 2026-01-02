@@ -505,9 +505,17 @@ export function ProfileView({
                     </div>
 
                     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
+                        <div className="relative w-full h-full max-h-[80vh]">
+                            <VscoImage
+                                src={selectedPost.image_url || "/placeholder.svg"}
+                                alt={selectedPost.caption || ""}
+                                layout="fill"
+                                objectFit="contain"
+                                className="bg-transparent"
                                 quality={90}
                                 priority
                             />
+                        </div>
                         </div>
 
                         {selectedPostIndex > 0 && (

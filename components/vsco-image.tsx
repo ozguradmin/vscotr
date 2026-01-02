@@ -1,7 +1,7 @@
 "use client"
 
 import { useState } from "react"
-import Image from "next/image"
+
 import { cn } from "@/lib/utils"
 
 interface VscoImageProps {
@@ -47,25 +47,22 @@ export function VscoImage({
                 </div>
             )}
 
-            <Image
+            <img
                 src={error ? "/placeholder.svg" : src}
                 alt={alt}
-                fill={layout === "fill"}
-                width={layout === "responsive" ? width : undefined}
-                height={layout === "responsive" ? height : undefined}
                 className={cn(
                     "duration-500 ease-in-out",
                     objectFit === "cover" ? "object-cover" : "object-contain",
-                    isLoading ? "scale-105 opacity-0" : "scale-100 opacity-100"
+                    layout === "fill" ? "absolute inset-0 w-full h-full" : "",
+                    isLoading ? "scale-105 opacity-0" : "scale-100 opacity-100",
+                    className
                 )}
-                quality={quality}
-                priority={priority}
                 onLoad={() => setIsLoading(false)}
                 onError={() => {
                     setError(true)
                     setIsLoading(false)
                 }}
-                sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
+                loading={priority ? "eager" : "lazy"}
             />
         </div>
     )

@@ -8,6 +8,7 @@ import { Query } from "appwrite"
 import { useAuth } from "@/lib/auth-context"
 
 import { VscoImage } from "@/components/vsco-image"
+import { MobileTabBar } from "@/components/mobile-tab-bar"
 import { X, Heart, RotateCcw, Trash2 } from "lucide-react"
 
 export function LandingPage() {
@@ -128,54 +129,50 @@ export function LandingPage() {
       </main>
 
       {/* Featured Grid - Real posts from database */}
-      <section className="px-4 pb-16">
+      <section className="px-4 pb-24 md:pb-16">
         <div className="max-w-6xl mx-auto">
           <h2 className="text-center text-sm font-medium uppercase tracking-wider text-muted-foreground mb-8">
             Topluluktan
           </h2>
-          <div className="grid grid-cols-2 md:grid-cols-4 gap-1">
+          <div className="columns-2 md:columns-3 lg:columns-4 gap-1 space-y-1">
             {isLoading
               ? Array.from({ length: 8 }).map((_, i) => (
-                <div key={i} className="aspect-square bg-muted animate-pulse" />
+                <div key={i} className="aspect-square bg-muted animate-pulse break-inside-avoid" />
               ))
               : featuredPosts.length > 0
                 ? featuredPosts.map((post) => (
-                  <div key={post.id} className="relative group break-inside-avoid mb-4">
+                  <div key={post.id} className="relative group break-inside-avoid overflow-hidden">
                     <div
-                      className="relative overflow-hidden rounded-lg cursor-pointer"
+                      className="relative cursor-pointer"
                       onClick={() => setSelectedPost(post)}
                     >
-                      <img
+                      <VscoImage
                         src={post.image_url || "/placeholder.svg"}
                         alt={post.caption || "Community photo"}
-                        className="w-full h-auto transform transition-transform duration-500 group-hover:scale-105"
-                        loading="lazy"
+                        aspectRatio={post.aspect_ratio || 1}
+                        className="w-full"
                       />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
-                    </div>
-
-                    <div className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-10 pointer-events-none">
-                      {/* This container prevents clicking on user from triggering modal if we handled bubbling, but here separate links are better below */}
                     </div>
 
                     {/* User Link Overlay - Clickable */}
                     <Link
                       href={`/${post.profiles?.username}`}
-                      className="absolute bottom-3 left-3 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20 hover:opacity-100"
+                      className="absolute bottom-2 left-2 flex items-center gap-2 opacity-0 group-hover:opacity-100 transition-opacity z-20"
                     >
-                      <div className="w-6 h-6 rounded-full overflow-hidden bg-muted">
+                      <div className="w-5 h-5 rounded-full overflow-hidden bg-muted">
                         <img
                           src={post.profiles?.avatar_url || "/placeholder.svg"}
                           alt={post.profiles?.username}
                           className="w-full h-full object-cover"
                         />
                       </div>
-                      <span className="text-white text-sm font-medium drop-shadow-md hover:underline">{post.profiles?.username}</span>
+                      <span className="text-white text-xs font-medium drop-shadow-md">{post.profiles?.username}</span>
                     </Link>
                   </div>
                 ))
                 : Array.from({ length: 8 }).map((_, i) => (
-                  <div key={i} className="aspect-square bg-muted flex items-center justify-center text-muted-foreground text-xs">
+                  <div key={i} className="aspect-square bg-muted flex items-center justify-center text-muted-foreground text-xs break-inside-avoid">
                     Görsel yok
                   </div>
                 ))}
@@ -279,6 +276,9 @@ export function LandingPage() {
           </div>
         </div>
       )}
+
+      {/* Mobile Tab Bar */}
+      {user && <MobileTabBar currentUserId={user.$id} />}
     </div>
   )
 }

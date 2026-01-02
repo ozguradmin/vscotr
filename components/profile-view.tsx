@@ -78,11 +78,36 @@ export function ProfileView({
     const [posts, setPosts] = useState(initialPosts)
     const [activeTab, setActiveTab] = useState<"posts" | "reposts">("posts")
 
-    // Sort & Filter States
-    const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">("newest")
-    const [filterType, setFilterType] = useState<"default" | "dark" | "light" | "soft">("default")
+    // Sort & Filter States - Load from localStorage
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(`profile_sort_${profile.id}`)
+            if (saved === 'newest' || saved === 'oldest' || saved === 'shuffle') return saved
+        }
+        return "newest"
+    })
+    const [filterType, setFilterType] = useState<"default" | "dark" | "light" | "soft">(() => {
+        if (typeof window !== 'undefined') {
+            const saved = localStorage.getItem(`profile_filter_${profile.id}`)
+            if (saved === 'default' || saved === 'dark' || saved === 'light' || saved === 'soft') return saved
+        }
+        return "default"
+    })
     const [showSortMenu, setShowSortMenu] = useState(false)
     const [showFilterMenu, setShowFilterMenu] = useState(false)
+
+    // Save to localStorage when changed
+    useEffect(() => {
+        if (typeof window !== 'undefined' && isOwnProfile) {
+            localStorage.setItem(`profile_sort_${profile.id}`, sortOrder)
+        }
+    }, [sortOrder, profile.id, isOwnProfile])
+
+    useEffect(() => {
+        if (typeof window !== 'undefined' && isOwnProfile) {
+            localStorage.setItem(`profile_filter_${profile.id}`, filterType)
+        }
+    }, [filterType, profile.id, isOwnProfile])
 
     // Followers States
     const [followersCount, setFollowersCount] = useState(0)

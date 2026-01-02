@@ -49,6 +49,7 @@ interface ProfileViewProps {
   reposts: Post[]
   currentUserId?: string
   currentUsername?: string
+  links: { id: string; label: string; url: string }[]
 }
 
 export function ProfileView({
@@ -75,7 +76,7 @@ export function ProfileView({
   const cache = useCache()
   const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
 
-  const currentPosts = activeTab === "posts" ? initialPosts : initialReposts
+  const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
 
   useEffect(() => {
     window.scrollTo(0, 0)
@@ -93,6 +94,83 @@ export function ProfileView({
       }
     }
   }, [currentUserId, currentPosts, activeTab])
+
+  useEffect(() => {
+    if (currentUserId && currentPosts.length > 0) {
+      // Load from cache first
+      const cached = cache.get<typeof postStates>(cacheKey)
+      if (cached && Object.keys(cached).length > 0) {
+        setPostStates(cached)
+      } else {
+        loadPostStates()
+      }
+    }
+  }, [currentUserId, currentPosts, activeTab])
+
+  // Client-side post fetching
+  const [clientPosts, setClientPosts] = useState<Post[]>([])
+  const [clientReposts, setClientReposts] = useState<Post[]>([])
+  const [isLoadingPosts, setIsLoadingPosts] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchProfileData = async () => {
+      setIsLoadingPosts(true)
+      setFetchError(null)
+      try {
+        console.log("Fetching profile posts for:", profile.id)
+
+        // 1. Fetch Posts
+        const { data: postsData, error: postsError } = await supabase
+          .from("posts")
+          .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id, created_at")
+          .eq("user_id", profile.id)
+          .order("order_index", { ascending: true })
+          .limit(15)
+
+        if (postsError) throw postsError
+
+        setClientPosts(postsData || [])
+
+        // 2. Fetch Reposts
+        const { data: repostsData, error: repostsError } = await supabase
+          .from("reposts")
+          .select("id, created_at, post_id")
+          .eq("user_id", profile.id)
+          .order("created_at", { ascending: false })
+          .limit(20)
+
+        if (repostsError) throw repostsError
+
+        if (repostsData && repostsData.length > 0) {
+          const postIds = repostsData.map(r => r.post_id)
+          const { data: repostPosts } = await supabase
+            .from("posts")
+            .select("id, image_url, caption, aspect_ratio, user_id, created_at")
+            .in("id", postIds)
+
+          const processedReposts = repostsData.map(r => ({
+            ...r,
+            posts: repostPosts?.find(p => p.id === r.post_id) || null
+          })).filter(r => r.posts).map(r => r.posts)
+
+          setClientReposts(processedReposts)
+        }
+      } catch (err: any) {
+        console.error("Profile data fetch error:", err)
+        setFetchError(err.message || "Veri yüklenirken hata oluştu.")
+      } finally {
+        setIsLoadingPosts(false)
+      }
+    }
+
+    fetchProfileData()
+  }, [profile.id])
+
+  // Use client posts if initialPosts is empty (which it will be now)
+  const currentPosts = activeTab === "posts"
+    ? (initialPosts.length > 0 ? initialPosts : clientPosts)
+    : (initialReposts.length > 0 ? initialReposts : clientReposts)
 
   useEffect(() => {
     if (Object.keys(postStates).length > 0 && currentUserId) {
@@ -384,15 +462,28 @@ export function ProfileView({
           ))}
         </div>
 
-        {currentPosts.length === 0 && (
-          <div className="py-16 text-center text-muted-foreground">
-            <p>
-              {activeTab === "posts"
-                ? "Henüz hiç gönderi yok"
-                : "Henüz hiç yeniden paylaşım yok"}
-            </p>
+        {isLoadingPosts ? (
+          <div className="columns-2 md:columns-3 gap-1 space-y-1">
+            {[...Array(6)].map((_, i) => (
+              <div key={i} className="aspect-square bg-muted animate-pulse break-inside-avoid" />
+            ))}
           </div>
-        )}
+        ) : currentPosts.length === 0 ? (
+          <div className="py-16 text-center text-muted-foreground">
+            {fetchError ? (
+              <div className="text-red-500">
+                <p>{fetchError}</p>
+                <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
+              </div>
+            ) : (
+              <p>
+                {activeTab === "posts"
+                  ? "Henüz hiç gönderi yok"
+                  : "Henüz hiç yeniden paylaşım yok"}
+              </p>
+            )}
+          </div>
+        ) : null}
       </main>
 
       {/* Post Detail Modal */}

@@ -64,6 +64,73 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
     }
   }, [currentUserId, posts])
 
+  // Client-side fetching
+  const [clientPosts, setClientPosts] = useState<Post[]>([])
+  const [isLoading, setIsLoading] = useState(true)
+  const [fetchError, setFetchError] = useState<string | null>(null)
+
+  useEffect(() => {
+    const fetchDiscoverPosts = async () => {
+      setIsLoading(true)
+      setFetchError(null)
+      try {
+        console.log("[Discover] Fetching posts client-side...")
+
+        // 1. Fetch Posts
+        const { data: postsData, error: postsError } = await supabase
+          .from("posts")
+          .select("id, image_url, caption, aspect_ratio, user_id, created_at")
+          .order("created_at", { ascending: false })
+          .limit(15)
+
+        if (postsError) throw postsError
+
+        if (!postsData || postsData.length === 0) {
+          setClientPosts([])
+          return
+        }
+
+        // 2. Fetch Profiles for these posts
+        const userIds = [...new Set(postsData.map(p => p.user_id))]
+        const { data: profilesData, error: profilesError } = await supabase
+          .from("profiles")
+          .select("id, username, avatar_url, member_badge")
+          .in("id", userIds)
+
+        if (profilesError) throw profilesError
+
+        // 3. Merge data
+        const mergedPosts = postsData.map(post => ({
+          ...post,
+          profiles: profilesData?.find(p => p.id === post.user_id) || {
+            id: post.user_id,
+            username: 'unknown',
+            avatar_url: null,
+            member_badge: null
+          }
+        }))
+
+        setClientPosts(mergedPosts)
+
+      } catch (err: any) {
+        console.error("[Discover] Fetch error:", err)
+        setFetchError(err.message || "Akış yüklenirken bir hata oluştu.")
+      } finally {
+        setIsLoading(false)
+      }
+    }
+
+    // Only fetch if initial posts are empty
+    if (posts.length === 0) {
+      fetchDiscoverPosts()
+    } else {
+      setIsLoading(false)
+    }
+  }, [posts.length])
+
+  // Use client posts if initial posts are empty
+  const displayPosts = posts.length > 0 ? posts : clientPosts
+
   // Post states değiştiğinde cache'e kaydet
   useEffect(() => {
     if (Object.keys(postStates).length > 0 && currentUserId) {
@@ -211,9 +278,15 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
       <main className="max-w-6xl mx-auto px-4 py-6">
         <h1 className="text-2xl font-light mb-6">Keşfet</h1>
 
-        {posts.length > 0 ? (
+        {isLoading ? (
           <div className="columns-2 md:columns-3 lg:columns-4 gap-1 space-y-1">
-            {posts.map((post, index) => (
+            {[...Array(8)].map((_, i) => (
+              <div key={i} className="aspect-[3/4] bg-muted animate-pulse break-inside-avoid" />
+            ))}
+          </div>
+        ) : displayPosts.length > 0 ? (
+          <div className="columns-2 md:columns-3 lg:columns-4 gap-1 space-y-1">
+            {displayPosts.map((post, index) => (
               <button
                 key={post.id}
                 onClick={() => setSelectedPostIndex(index)}
@@ -252,7 +325,14 @@ export function DiscoverView({ posts, currentUserId, currentUsername }: Discover
           </div>
         ) : (
           <div className="py-16 text-center text-muted-foreground">
-            <p>Henüz keşfedilecek içerik yok</p>
+            {fetchError ? (
+              <div className="text-red-500">
+                <p>{fetchError}</p>
+                <button onClick={() => window.location.reload()} className="mt-2 text-xs underline">Tekrar Dene</button>
+              </div>
+            ) : (
+              <p>Henüz keşfedilecek içerik yok</p>
+            )}
           </div>
         )}
       </main>

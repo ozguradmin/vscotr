@@ -410,36 +410,29 @@ export function SettingsView({
         <div className="flex gap-4 border-b border-border mb-6 overflow-x-auto no-scrollbar">
           <button
             onClick={() => setActiveTab("profile")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${activeTab === "profile" ? "text-foreground" : "text-muted-foreground"
-              } `}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "profile" ? "text-foreground" : "text-muted-foreground"}`}
           >
-            <User className="w-4 h-4" />
             Profil
             {activeTab === "profile" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("posts")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap ${activeTab === "posts" ? "text-foreground" : "text-muted-foreground"
-              } `}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "posts" ? "text-foreground" : "text-muted-foreground"}`}
           >
             Gönderiler
             {activeTab === "posts" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("reposts")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${activeTab === "reposts" ? "text-foreground" : "text-muted-foreground"
-              } `}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "reposts" ? "text-foreground" : "text-muted-foreground"}`}
           >
-            <RotateCcw className="w-4 h-4" />
             Repostlar
             {activeTab === "reposts" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
           </button>
           <button
             onClick={() => setActiveTab("account")}
-            className={`pb - 3 text - sm font - medium transition - colors relative whitespace - nowrap flex items - center gap - 2 ${activeTab === "account" ? "text-foreground" : "text-muted-foreground"
-              } `}
+            className={`pb-3 text-sm font-medium transition-colors relative whitespace-nowrap ${activeTab === "account" ? "text-foreground" : "text-muted-foreground"}`}
           >
-            <Key className="w-4 h-4" />
             Hesap
             {activeTab === "account" && <span className="absolute bottom-0 left-0 right-0 h-0.5 bg-foreground" />}
           </button>

@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin, Shuffle, Filter, Plus } from "lucide-react"
+import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin, Shuffle, Filter, Plus, Trash2 } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
@@ -710,28 +710,47 @@ export function ProfileView({
                                 </div>
                             </div>
 
-                            <div className="flex items-center gap-2 flex-shrink-0">
-                                <button
-                                    onClick={() => handleLike(selectedPost.id)}
-                                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""
-                                        }`}
-                                >
-                                    <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
-                                </button>
-                                <button
-                                    onClick={() => handleRepost(selectedPost.id)}
-                                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
-                                        }`}
-                                >
-                                    <RotateCcw className="w-5 h-5" />
-                                </button>
-                                {/* Go to Detail Page Button */}
-                                <Link href={`/p/${selectedPost.id}`}>
-                                    <Button size="icon" variant="ghost" className="rounded-full">
-                                        <Share2 className="w-5 h-5" />
-                                    </Button>
-                                </Link>
-                            </div>
+                            {/* Action buttons: 3-dot for own posts, like/repost for others */}
+                            {isOwnProfile ? (
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm("Bu gönderiyi silmek istediğinizden emin misiniz?")) return
+                                            try {
+                                                await databases.deleteDocument(
+                                                    APPWRITE_CONFIG.DATABASE_ID,
+                                                    APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                                                    selectedPost.id
+                                                )
+                                                setSelectedPostIndex(null)
+                                                window.location.reload()
+                                            } catch (e) {
+                                                console.error("Delete error", e)
+                                                alert("Silinirken hata oluştu")
+                                            }
+                                        }}
+                                        className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500"
+                                        title="Sil"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            ) : (
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={() => handleLike(selectedPost.id)}
+                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""}`}
+                                    >
+                                        <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
+                                    </button>
+                                    <button
+                                        onClick={() => handleRepost(selectedPost.id)}
+                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""}`}
+                                    >
+                                        <RotateCcw className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
                         </div>
                     </div>
                 </div>

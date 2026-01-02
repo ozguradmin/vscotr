@@ -166,8 +166,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                           )}
                         </div>
                         <div>
-                          <p className="font-medium">{profile.display_name || profile.username}</p>
-                          <p className="text-sm text-muted-foreground">@{profile.username}</p>
+                          <p className="font-medium text-foreground">{profile.username}</p>
                         </div>
                       </Link>
                     ))}

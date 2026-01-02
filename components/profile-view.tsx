@@ -482,7 +482,20 @@ export function ProfileView({
                     </div>
 
                     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
-                        <div className="relative w-full h-full max-h-[80vh]">
+                        {/* Low-res / Cached Thumbnail (Instant) */}
+                        <div className="absolute inset-0 z-0">
+                            <VscoImage
+                                src={selectedPost.image_url || "/placeholder.svg"}
+                                alt={selectedPost.caption || ""}
+                                layout="fill"
+                                objectFit="contain"
+                                className="bg-transparent opacity-50 blur-sm scale-105"
+                                quality={10} // Very low quality for speed
+                            />
+                        </div>
+
+                        {/* Full High-res Image (Loaded on top) */}
+                        <div className="relative w-full h-full z-10 transition-opacity duration-300">
                             <VscoImage
                                 src={selectedPost.image_url || "/placeholder.svg"}
                                 alt={selectedPost.caption || ""}

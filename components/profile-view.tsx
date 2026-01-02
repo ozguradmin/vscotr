@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin, Shuffle, Filter, Plus, Trash2 } from "lucide-react"
+import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin, Shuffle, Filter, Plus, Trash2, Link2 } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
@@ -574,15 +574,16 @@ export function ProfileView({
 
                         {/* Links */}
                         {links && links.length > 0 && (
-                            <div className="flex flex-wrap gap-2 mb-4">
+                            <div className="flex flex-wrap gap-3 mb-4">
                                 {links.map(link => (
                                     <a
                                         key={link.id}
                                         href={link.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-sm text-blue-600 hover:underline"
+                                        className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-1 transition-colors"
                                     >
+                                        <Link2 className="w-3 h-3" />
                                         {link.label || link.url}
                                     </a>
                                 ))}
@@ -601,7 +602,28 @@ export function ProfileView({
                                     <Button variant="outline" size="sm" onClick={() => router.push('/ayarlar')} className="h-8 border-black text-black hover:bg-black hover:text-white transition-colors">
                                         Profili Düzenle
                                     </Button>
-                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                    <Button
+                                        variant="ghost"
+                                        size="icon"
+                                        className="h-8 w-8"
+                                        onClick={async () => {
+                                            const shareData = {
+                                                title: `${profile.username} - VSCO TR`,
+                                                text: profile.bio || `${profile.username} profilini incele`,
+                                                url: window.location.href
+                                            }
+                                            try {
+                                                if (navigator.share) {
+                                                    await navigator.share(shareData)
+                                                } else {
+                                                    await navigator.clipboard.writeText(window.location.href)
+                                                    alert('Profil linki kopyalandı!')
+                                                }
+                                            } catch (e) {
+                                                console.error('Share error:', e)
+                                            }
+                                        }}
+                                    >
                                         <Share2 className="w-4 h-4" />
                                     </Button>
                                 </div>

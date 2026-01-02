@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-react"
+import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin, Shuffle, Filter, Plus } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
@@ -56,7 +56,7 @@ export function ProfileView({
     profile,
     posts: initialPosts,
     reposts,
-    isOwnProfile, // We use this prop name now
+    isOwnProfile,
     links
 }: {
     profile: Profile
@@ -76,7 +76,7 @@ export function ProfileView({
 
     // Sort & Filter States
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">("newest")
-    const [filterType, setFilterType] = useState<"default" | "dark" | "light">("default")
+    const [filterType, setFilterType] = useState<"default" | "dark" | "light" | "soft">("default")
     const [showSortMenu, setShowSortMenu] = useState(false)
     const [showFilterMenu, setShowFilterMenu] = useState(false)
 
@@ -98,15 +98,6 @@ export function ProfileView({
     const [touchStart, setTouchStart] = useState<number | null>(null)
     const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
-    // Removed duplicate router definition
-    // const router = useRouter()
-
-    // If 'isOwner' is defined here again, it shadows or duplicates.
-    // Let's see the previous `view_file` output in thought or just read it now.
-
-    // I will just read the file first to be sure what is there.
-
-
     // Client-side post fetching logic
     const [clientPosts, setClientPosts] = useState<Post[]>([])
     const [clientReposts, setClientReposts] = useState<Post[]>([])
@@ -116,9 +107,32 @@ export function ProfileView({
 
     const currentPosts = activeTab === "posts" ? clientPosts : clientReposts
 
+    // Filter Style
+    const getFilterStyle = () => {
+        switch (filterType) {
+            case 'dark': return 'brightness(0.8) contrast(1.1) saturate(0.9)'
+            case 'light': return 'brightness(1.1) contrast(0.95) saturate(0.9)'
+            case 'soft': return 'brightness(1.05) contrast(0.9) sepia(0.1)'
+            default: return 'none'
+        }
+    }
+
+    // Handle Sort Change
+    const handleSortChange = (type: "newest" | "oldest" | "shuffle") => {
+        setSortOrder(type)
+        setShowSortMenu(false)
+    }
+
+    // Handle Filter Change
+    const handleFilterChange = (type: "default" | "dark" | "light" | "soft") => {
+        setFilterType(type)
+        setShowFilterMenu(false)
+    }
+
     useEffect(() => {
         window.scrollTo(0, 0)
         checkFollowStatus()
+        fetchFollowCounts()
     }, [currentUserId, profile.id])
 
     // Fetching effect (Appwrite)
@@ -129,23 +143,33 @@ export function ProfileView({
             setFetchError(null)
             try {
                 // 1. Fetch Posts
+                let queries = [
+                    Query.equal("user_id", profile.id),
+                    Query.limit(50)
+                ];
+
+                if (sortOrder === 'newest') queries.push(Query.orderDesc("created_at"));
+                else if (sortOrder === 'oldest') queries.push(Query.orderAsc("created_at"));
+                // Shuffle handled client side or separate logic normally, assuming simple here
+
                 const postsResponse = await databases.listDocuments(
                     APPWRITE_CONFIG.DATABASE_ID,
                     APPWRITE_CONFIG.COLLECTIONS.POSTS,
-                    [
-                        Query.equal("user_id", profile.id),
-                        Query.orderDesc("created_at"),
-                        Query.limit(50)
-                    ]
+                    queries
                 )
 
-                const formattedPosts: Post[] = postsResponse.documents.map((doc) => ({
+                let formattedPosts: Post[] = postsResponse.documents.map((doc) => ({
                     id: doc.$id,
                     image_url: doc.image_url,
                     caption: doc.caption,
                     aspect_ratio: doc.aspect_ratio || 1,
                     created_at: doc.created_at || doc.$createdAt
                 }))
+
+                if (sortOrder === 'shuffle') {
+                    formattedPosts = formattedPosts.sort(() => Math.random() - 0.5);
+                }
+
                 setClientPosts(formattedPosts)
                 setIsLoading(false)
 
@@ -189,9 +213,9 @@ export function ProfileView({
         }
 
         fetchProfileData()
-    }, [profile.id])
+    }, [profile.id, sortOrder])
 
-    // Load Post States (Likes/Reposts)
+    // Load Post States
     useEffect(() => {
         if (!currentUserId || currentPosts.length === 0) return
 
@@ -200,7 +224,6 @@ export function ProfileView({
             if (postIds.length === 0) return
 
             try {
-                // Check Likes
                 const likesRes = await databases.listDocuments(
                     APPWRITE_CONFIG.DATABASE_ID,
                     APPWRITE_CONFIG.COLLECTIONS.LIKES,
@@ -209,7 +232,6 @@ export function ProfileView({
                         Query.equal("post_id", postIds)
                     ]
                 )
-                // Check Reposts
                 const repostsRes = await databases.listDocuments(
                     APPWRITE_CONFIG.DATABASE_ID,
                     APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
@@ -238,6 +260,25 @@ export function ProfileView({
         checkStates()
     }, [currentUserId, currentPosts, activeTab])
 
+    const fetchFollowCounts = async () => {
+        try {
+            const followersRes = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                [Query.equal("following_id", profile.id)]
+            )
+            setFollowersCount(followersRes.total)
+
+            const followingRes = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                [Query.equal("follower_id", profile.id)]
+            )
+            setFollowingCount(followingRes.total)
+        } catch (e) {
+            console.error("Fetch counts error", e)
+        }
+    }
 
     const checkFollowStatus = async () => {
         if (!currentUserId) return
@@ -263,7 +304,6 @@ export function ProfileView({
         }
 
         if (isFollowing) {
-            // Unfollow: Find doc first then delete (inefficient but standard in simple api)
             const res = await databases.listDocuments(
                 APPWRITE_CONFIG.DATABASE_ID,
                 APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
@@ -275,6 +315,7 @@ export function ProfileView({
             if (res.documents.length > 0) {
                 await databases.deleteDocument(APPWRITE_CONFIG.DATABASE_ID, APPWRITE_CONFIG.COLLECTIONS.FOLLOWS, res.documents[0].$id)
                 setIsFollowing(false)
+                setFollowersCount(prev => Math.max(0, prev - 1))
             }
         } else {
             await databases.createDocument(
@@ -284,12 +325,12 @@ export function ProfileView({
                 { follower_id: currentUserId, following_id: profile.id }
             )
             setIsFollowing(true)
+            setFollowersCount(prev => prev + 1)
         }
     }
 
     const handleLike = async (postId: string) => {
         if (!currentUserId) return router.push("/giris")
-
         const currentState = postStates[postId]?.liked
 
         if (currentState) {
@@ -315,7 +356,6 @@ export function ProfileView({
 
     const handleRepost = async (postId: string) => {
         if (!currentUserId) return router.push("/giris")
-
         const currentState = postStates[postId]?.reposted
 
         if (currentState) {
@@ -351,22 +391,18 @@ export function ProfileView({
     }
 
     const minSwipeDistance = 50
-
     const onTouchStart = (e: React.TouchEvent) => {
         setTouchEnd(null)
         setTouchStart(e.targetTouches[0].clientX)
     }
-
     const onTouchMove = (e: React.TouchEvent) => {
         setTouchEnd(e.targetTouches[0].clientX)
     }
-
     const onTouchEnd = () => {
         if (!touchStart || !touchEnd) return
         const distance = touchStart - touchEnd
         const isLeftSwipe = distance > minSwipeDistance
         const isRightSwipe = distance < -minSwipeDistance
-
         if (isLeftSwipe) navigatePost("next")
         if (isRightSwipe) navigatePost("prev")
     }
@@ -388,7 +424,7 @@ export function ProfileView({
                 <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
                     <Link href="/" className="flex items-center gap-2">
                         <VscoLogo className="w-8 h-8" />
-                        <span className="font-semibold">VSCO TR 7</span>
+                        <span className="font-semibold">VSCO TR 8</span>
                     </Link>
                     <div className="flex items-center gap-1">
                         <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)} aria-label="Arama">
@@ -453,23 +489,79 @@ export function ProfileView({
                             </Button>
                         )}
 
-                        {currentUserId && profile.id === currentUserId && (
-                            <div className="flex gap-2">
-                                <Button variant="outline" onClick={() => setEditProfileOpen(true)} className="flex-1">
-                                    Profili Düzenle
-                                </Button>
-                                <Button variant="outline" onClick={() => setSettingsOpen(true)} className="flex-1">
-                                    Ayarlar
-                                </Button>
-                                <button
-                                    onClick={() => {
-                                        navigator.clipboard.writeText(`${window.location.origin}/profil/${profile.username}`);
-                                        alert("Profil linki kopyalandı!");
-                                    }}
-                                    className="p-1.5 border border-border hover:bg-accent transition-colors rounded-full"
-                                >
-                                    <Share2 className="w-3.5 h-3.5" />
-                                </button>
+                        {isOwnProfile && (
+                            <div className="flex flex-col gap-4">
+                                <div className="flex gap-3">
+                                    <Button variant="outline" size="sm" onClick={() => router.push('/ayarlar')} className="h-8 border-black text-black hover:bg-black hover:text-white transition-colors">
+                                        Profili Düzenle
+                                    </Button>
+                                    <Button variant="ghost" size="icon" className="h-8 w-8">
+                                        <Share2 className="w-4 h-4" />
+                                    </Button>
+                                </div>
+                                <div className="flex gap-4 text-sm text-muted-foreground">
+                                    <button onClick={() => setShowFollowersModal(true)} className="hover:text-foreground hover:underline">
+                                        <span className="font-bold text-foreground">{followersCount}</span> takipçi
+                                    </button>
+                                    <button onClick={() => setShowFollowingModal(true)} className="hover:text-foreground hover:underline">
+                                        <span className="font-bold text-foreground">{followingCount}</span> takip
+                                    </button>
+                                </div>
+                            </div>
+                        )}
+
+                        {/* Toolbar: Sort, Filter, Create (Only Own Profile) */}
+                        {isOwnProfile && activeTab === "posts" && (
+                            <div className="w-full max-w-2xl flex items-center justify-between mt-4 pb-2 border-b border-gray-100">
+                                <div className="flex gap-2 relative">
+                                    {/* Sort Button */}
+                                    <div className="relative">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-xs flex gap-1 h-7 text-muted-foreground"
+                                            onClick={() => setShowSortMenu(!showSortMenu)}
+                                        >
+                                            <Shuffle className="w-3 h-3" />
+                                            {sortOrder === 'newest' ? 'Yeni' : sortOrder === 'oldest' ? 'Eski' : 'Karışık'}
+                                        </Button>
+                                        {showSortMenu && (
+                                            <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[120px] py-1 flex flex-col">
+                                                <button onClick={() => handleSortChange('newest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Yeni</button>
+                                                <button onClick={() => handleSortChange('oldest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Eski</button>
+                                                <button onClick={() => handleSortChange('shuffle')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Karıştır</button>
+                                            </div>
+                                        )}
+                                    </div>
+
+                                    {/* Filter Button */}
+                                    <div className="relative">
+                                        <Button
+                                            variant="ghost"
+                                            size="sm"
+                                            className="text-xs flex gap-1 h-7 text-muted-foreground"
+                                            onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                        >
+                                            <Filter className="w-3 h-3" />
+                                            Ton: {filterType === 'default' ? 'Normal' : filterType === 'dark' ? 'Koyu' : filterType === 'light' ? 'Açık' : 'Soft'}
+                                        </Button>
+                                        {showFilterMenu && (
+                                            <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[120px] py-1 flex flex-col">
+                                                <button onClick={() => handleFilterChange('default')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Varsayılan</button>
+                                                <button onClick={() => handleFilterChange('dark')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Koyu Ton</button>
+                                                <button onClick={() => handleFilterChange('light')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Açık Ton</button>
+                                                <button onClick={() => handleFilterChange('soft')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Soft</button>
+                                            </div>
+                                        )}
+                                    </div>
+                                </div>
+
+                                <Link href="/olustur">
+                                    <Button size="sm" className="h-7 text-xs bg-foreground text-background hover:bg-foreground/90">
+                                        <Plus className="w-3 h-3 mr-1" />
+                                        Yeni Post
+                                    </Button>
+                                </Link>
                             </div>
                         )}
                     </div>
@@ -493,7 +585,7 @@ export function ProfileView({
                     >
                         <div className="flex items-center justify-center gap-2">
                             <RotateCcw className="w-4 h-4" />
-                            <span>Koleksiyon</span>
+                            <span>Repostlar</span>
                         </div>
                     </button>
                 </div>
@@ -510,6 +602,7 @@ export function ProfileView({
                                 alt={post.caption || ""}
                                 aspectRatio={post.aspect_ratio || 1}
                                 className="w-full h-full"
+                                style={{ filter: getFilterStyle() }}
                             />
                             <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                             {activeTab === "reposts" && (
@@ -547,6 +640,7 @@ export function ProfileView({
                 }
             </main >
 
+            {/* Full Screen Post Modal */}
             {selectedPost && selectedPostIndex !== null && (
                 <div
                     className="fixed inset-0 z-50 bg-background flex flex-col"
@@ -561,15 +655,13 @@ export function ProfileView({
                     </div>
 
                     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
-                        <div className="relative w-full h-full max-h-[80vh]">
-                            <VscoImage
+                        <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
+                            {/* Native img for reliability */}
+                            <img
                                 src={selectedPost.image_url || "/placeholder.svg"}
                                 alt={selectedPost.caption || ""}
-                                layout="fill"
-                                objectFit="contain"
-                                className="bg-transparent"
-                                quality={90}
-                                priority
+                                className="max-w-full max-h-full object-contain"
+                                style={{ filter: getFilterStyle() }}
                             />
                         </div>
 
@@ -619,24 +711,28 @@ export function ProfileView({
                                 </div>
                             </div>
 
-                            {currentUserId && profile.id !== currentUserId && (
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={() => handleLike(selectedPost.id)}
-                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""
-                                            }`}
-                                    >
-                                        <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleRepost(selectedPost.id)}
-                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
-                                            }`}
-                                    >
-                                        <RotateCcw className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            )}
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                                <button
+                                    onClick={() => handleLike(selectedPost.id)}
+                                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""
+                                        }`}
+                                >
+                                    <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
+                                </button>
+                                <button
+                                    onClick={() => handleRepost(selectedPost.id)}
+                                    className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""
+                                        }`}
+                                >
+                                    <RotateCcw className="w-5 h-5" />
+                                </button>
+                                {/* Go to Detail Page Button */}
+                                <Link href={`/p/${selectedPost.id}`}>
+                                    <Button size="icon" variant="ghost" className="rounded-full">
+                                        <Share2 className="w-5 h-5" />
+                                    </Button>
+                                </Link>
+                            </div>
                         </div>
                     </div>
                 </div>

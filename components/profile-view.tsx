@@ -266,10 +266,10 @@ export function ProfileView({
       <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
       <main className="max-w-4xl mx-auto px-4 py-8">
-        <div className="flex flex-col md:flex-row gap-8 mb-12">
+        <div className="flex items-start gap-4 md:gap-8 mb-8 md:mb-12 px-4 md:px-0">
           {/* Avatar */}
-          <div className="flex-shrink-0 mx-auto md:mx-0">
-            <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden relative">
+          <div className="flex-shrink-0">
+            <div className="w-20 h-20 md:w-32 md:h-32 rounded-full overflow-hidden relative border border-border">
               {profile.avatar_url ? (
                 <VscoImage
                   src={profile.avatar_url}
@@ -285,18 +285,18 @@ export function ProfileView({
           </div>
 
           {/* Profile Info */}
-          <div className="flex-1 text-center md:text-left">
-            <h1 className="text-2xl font-light mb-1">{profile.display_name || profile.username}</h1>
-            <p className="text-sm text-muted-foreground mb-4">@{profile.username}</p>
-            {profile.bio && <p className="text-sm whitespace-pre-wrap mb-4 max-w-md mx-auto md:mx-0">{profile.bio}</p>}
+          <div className="flex-1 min-w-0 pt-2">
+            <h1 className="text-xl md:text-2xl font-light leading-none mb-1">{profile.display_name || profile.username}</h1>
+            <p className="text-sm text-muted-foreground mb-3">@{profile.username}</p>
+            {profile.bio && <p className="text-sm whitespace-pre-wrap mb-4 max-w-md">{profile.bio}</p>}
 
             {isOwner ? (
-              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={() => setEditProfileOpen(true)}
-                  className="px-6 py-1.5 border border-border text-sm font-medium hover:bg-accent transition-colors uppercase tracking-wider"
+                  className="px-4 py-1.5 border border-border text-xs font-medium hover:bg-accent transition-colors uppercase tracking-wider"
                 >
-                  Profili Düzenle
+                  Düzenle
                 </button>
                 <button
                   onClick={() => {
@@ -304,21 +304,21 @@ export function ProfileView({
                     navigator.clipboard.writeText(url);
                     alert("Profil linki kopyalandı!");
                   }}
-                  className="p-2 border border-border hover:bg-accent transition-colors rounded-full"
+                  className="p-1.5 border border-border hover:bg-accent transition-colors rounded-full"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <Share2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             ) : (
-              <div className="flex flex-wrap justify-center md:justify-start gap-4">
+              <div className="flex flex-wrap gap-3">
                 <button
                   onClick={handleFollow}
-                  className={`px-8 py-1.5 text-sm font-medium transition-colors uppercase tracking-wider ${isFollowing
+                  className={`px-6 py-1.5 text-xs font-medium transition-colors uppercase tracking-wider ${isFollowing
                       ? "border border-border hover:bg-accent"
                       : "bg-foreground text-background hover:opacity-90"
                     }`}
                 >
-                  {isFollowing ? "Takip Ediliyor" : "Takip Et"}
+                  {isFollowing ? "Takipte" : "Takip Et"}
                 </button>
                 <button
                   onClick={() => {
@@ -326,9 +326,9 @@ export function ProfileView({
                     navigator.clipboard.writeText(url);
                     alert("Profil linki kopyalandı!");
                   }}
-                  className="p-2 border border-border hover:bg-accent transition-colors rounded-full"
+                  className="p-1.5 border border-border hover:bg-accent transition-colors rounded-full"
                 >
-                  <Share2 className="w-4 h-4" />
+                  <Share2 className="w-3.5 h-3.5" />
                 </button>
               </div>
             )}

@@ -34,6 +34,7 @@ interface FeedViewProps {
 export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null) // Explicitly manage post state if used
   const [postStates, setPostStates] = useState<
     Record<string, { liked: boolean; reposted: boolean; likesCount: number }>
   >({})

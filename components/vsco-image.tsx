@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 
 import { cn } from "@/lib/utils"
 
@@ -31,9 +31,29 @@ export function VscoImage({
 }: VscoImageProps) {
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState(false)
+    const imgRef = useRef<HTMLImageElement>(null)
 
     // Aspect ratio style calculation
     const style = aspectRatio ? { aspectRatio } : undefined
+
+    useEffect(() => {
+        // Reset state when src changes
+        setIsLoading(true)
+        setError(false)
+
+        // If image is already complete (cached), set loading to false immediately
+        if (imgRef.current?.complete) {
+            setIsLoading(false)
+        }
+
+        // Fallback timeout: If image doesn't load in 3 seconds, show it anyway (or assume broken/loaded)
+        // This fixes issues where onLoad doesn't fire on some browsers/Safari specific cases
+        const timeout = setTimeout(() => {
+            setIsLoading(false)
+        }, 3000)
+
+        return () => clearTimeout(timeout)
+    }, [src])
 
     return (
         <div
@@ -42,12 +62,13 @@ export function VscoImage({
         >
             {/* Skeleton / Loading State */}
             {isLoading && (
-                <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center">
+                <div className="absolute inset-0 bg-muted animate-pulse flex items-center justify-center z-10">
                     <div className="w-8 h-8 rounded-full border-2 border-muted-foreground/20 border-t-muted-foreground animate-spin" />
                 </div>
             )}
 
             <img
+                ref={imgRef}
                 src={error ? "/placeholder.svg" : src}
                 alt={alt}
                 className={cn(

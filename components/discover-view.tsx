@@ -76,8 +76,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     APPWRITE_CONFIG.DATABASE_ID,
                     APPWRITE_CONFIG.COLLECTIONS.POSTS,
                     [
-                        Query.orderDesc("created_at"),
-                        Query.limit(50)
+                        Query.limit(100)
                     ]
                 )
 
@@ -86,7 +85,10 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     return
                 }
 
-                const userIds = [...new Set(postsResponse.documents.map(d => d.user_id))]
+                // Shuffle the posts
+                const shuffledDocs = postsResponse.documents.sort(() => Math.random() - 0.5)
+
+                const userIds = [...new Set(shuffledDocs.map(d => d.user_id))]
 
                 const profilesResponse = await databases.listDocuments(
                     APPWRITE_CONFIG.DATABASE_ID,
@@ -94,7 +96,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                     [Query.equal("$id", userIds)]
                 )
 
-                const formattedPosts: Post[] = postsResponse.documents.map(doc => {
+                const formattedPosts: Post[] = shuffledDocs.map(doc => {
                     const profile = profilesResponse.documents.find(p => p.$id === doc.user_id)
                     return {
                         id: doc.$id,

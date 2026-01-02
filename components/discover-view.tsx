@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Menu, X, Heart, RotateCcw, ChevronLeft, ChevronRight } from "lucide-react"
+import { Search, Menu, X, Heart, RotateCcw, ChevronLeft, ChevronRight, Trash2 } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
@@ -453,7 +453,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                 </div>
                             </Link>
 
-                            {/* Like & Repost - Only if NOT own post */}
+                            {/* Like & Repost for others, Delete for own posts */}
                             {currentUserId && !isOwnPost && (
                                 <div className="flex items-center gap-2 flex-shrink-0">
                                     <button
@@ -469,6 +469,31 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                             }`}
                                     >
                                         <RotateCcw className="w-5 h-5" />
+                                    </button>
+                                </div>
+                            )}
+                            {currentUserId && isOwnPost && (
+                                <div className="flex items-center gap-2 flex-shrink-0">
+                                    <button
+                                        onClick={async () => {
+                                            if (!confirm("Bu gönderiyi silmek istediğinizden emin misiniz?")) return
+                                            try {
+                                                await databases.deleteDocument(
+                                                    APPWRITE_CONFIG.DATABASE_ID,
+                                                    APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                                                    selectedPost.id
+                                                )
+                                                setSelectedPostIndex(null)
+                                                window.location.reload()
+                                            } catch (e) {
+                                                console.error("Delete error", e)
+                                                alert("Silinirken hata oluştu")
+                                            }
+                                        }}
+                                        className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500"
+                                        title="Sil"
+                                    >
+                                        <Trash2 className="w-5 h-5" />
                                     </button>
                                 </div>
                             )}

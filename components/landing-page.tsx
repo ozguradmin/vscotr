@@ -8,7 +8,7 @@ import { Query } from "appwrite"
 import { useAuth } from "@/lib/auth-context"
 
 import { VscoImage } from "@/components/vsco-image"
-import { X, Heart, RotateCcw } from "lucide-react"
+import { X, Heart, RotateCcw, Trash2 } from "lucide-react"
 
 export function LandingPage() {
   const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
@@ -228,7 +228,7 @@ export function LandingPage() {
             </div>
 
             {/* Post Details / User Info in Modal */}
-            <div className="absolute bottom-[-3rem] left-0 flex items-center gap-3 text-white">
+            <div className="absolute bottom-[-3rem] left-0 right-0 flex items-center justify-between text-white">
               <Link href={`/${selectedPost.profiles?.username}`} className="flex items-center gap-2 hover:opacity-80">
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-800">
                   <img
@@ -239,12 +239,42 @@ export function LandingPage() {
                 </div>
                 <span className="font-medium text-lg">{selectedPost.profiles?.username}</span>
               </Link>
-              {selectedPost.caption && (
-                <>
-                  <span className="text-white/50">•</span>
-                  <span className="text-white/90">{selectedPost.caption}</span>
-                </>
-              )}
+
+              {/* Action buttons */}
+              <div className="flex items-center gap-2">
+                {user && user.$id === selectedPost.user_id ? (
+                  <button
+                    onClick={async () => {
+                      if (!confirm("Bu gönderiyi silmek istediğinizden emin misiniz?")) return
+                      try {
+                        await databases.deleteDocument(
+                          APPWRITE_CONFIG.DATABASE_ID,
+                          APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                          selectedPost.id
+                        )
+                        setSelectedPost(null)
+                        window.location.reload()
+                      } catch (e) {
+                        console.error("Delete error", e)
+                        alert("Silinirken hata oluştu")
+                      }
+                    }}
+                    className="p-2 hover:bg-red-500/30 rounded-full transition-colors text-red-400"
+                    title="Sil"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
+                ) : user ? (
+                  <>
+                    <button className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                      <Heart className="w-5 h-5" />
+                    </button>
+                    <button className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                      <RotateCcw className="w-5 h-5" />
+                    </button>
+                  </>
+                ) : null}
+              </div>
             </div>
           </div>
         </div>

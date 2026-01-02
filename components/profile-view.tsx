@@ -56,7 +56,7 @@ export function ProfileView({
     profile,
     posts: initialPosts,
     reposts,
-    isOwnProfile,
+    isOwnProfile: _isOwnProfileProp, // Renamed to avoid conflict - we calculate client-side
     links
 }: {
     profile: Profile
@@ -69,6 +69,9 @@ export function ProfileView({
     const currentUserId = user?.$id
     const currentUsername = user?.name
     const router = useRouter()
+
+    // Client-side ownership check - this is the source of truth
+    const isOwnProfile = currentUserId ? currentUserId === profile.id : false
 
     // States
     const [posts, setPosts] = useState(initialPosts)

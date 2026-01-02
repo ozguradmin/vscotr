@@ -66,8 +66,7 @@ async function ProfileContent({ username }: { username: string }) {
         posts={[]} // Client loads posts
         links={[]}
         reposts={[]}
-        currentUserId={undefined} // Let client auth handle this
-        isOwner={false} // Client will verify ownership
+        isOwnProfile={false} // Client will verify ownership based on currentUserId
       />
     )
   } catch (error) {

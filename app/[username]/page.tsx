@@ -56,6 +56,23 @@ async function ProfileContent({ username }: { username: string }) {
       location: profileDoc.location
     }
 
+    // Fetch profile links
+    let links: { id: string; label: string; url: string }[] = []
+    try {
+      const linksResponse = await adminDatabases.listDocuments(
+        APPWRITE_CONFIG.DATABASE_ID,
+        APPWRITE_CONFIG.COLLECTIONS.PROFILE_LINKS,
+        [Query.equal("profile_id", profileDoc.$id), Query.orderAsc("order_index")]
+      )
+      links = linksResponse.documents.map(doc => ({
+        id: doc.$id,
+        label: doc.label || "",
+        url: doc.url
+      }))
+    } catch (e) {
+      console.error("Links fetch error:", e)
+    }
+
     // Server-side auth check skipped for speed/simplicity in this migration.
     // Client-side 'AuthContext' will handle currentUserId.
     // We pass null for now, triggering client-side check if needed.
@@ -64,7 +81,7 @@ async function ProfileContent({ username }: { username: string }) {
       <ProfileView
         profile={profile}
         posts={[]} // Client loads posts
-        links={[]}
+        links={links}
         reposts={[]}
         isOwnProfile={false} // Client will verify ownership based on currentUserId
       />

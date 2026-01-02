@@ -553,7 +553,7 @@ export function SettingsView({
             </div>
           </div>
         ) : activeTab === "posts" ? (
-          <div className="space-y-4 pb-6">
+          <div className="space-y-4 pb-24 md:pb-6">
             <Link href="/olustur">
               <Button className="w-full">
                 <Plus className="w-4 h-4 mr-2" />
@@ -561,55 +561,65 @@ export function SettingsView({
               </Button>
             </Link>
             {posts.length > 0 ? (
-              posts.map((post, index) => (
-                <div key={post.id} className="flex gap-3 p-4 border border-border rounded-lg">
-                  <VscoImage
-                    src={post.image_url || "/placeholder.svg"}
-                    alt=""
-                    className="w-20 h-20 rounded flex-shrink-0 transform-none"
-                  />
-                  <div className="flex-1 min-w-0 space-y-2">
-                    <Input
-                      placeholder="Açıklama (isteğe bağlı)"
-                      value={post.caption || ""}
-                      onChange={(e) => handleUpdatePost(post.id, "caption", e.target.value)}
-                      className="w-full"
+              <>
+                {posts.map((post, index) => (
+                  <div key={post.id} className="flex gap-3 p-4 border border-border rounded-lg">
+                    <VscoImage
+                      src={post.image_url || "/placeholder.svg"}
+                      alt=""
+                      className="w-20 h-20 rounded flex-shrink-0 transform-none"
                     />
-                    <Input
-                      type="date"
-                      value={post.post_date ? new Date(post.post_date).toISOString().slice(0, 10) : ""}
-                      onChange={(e) => handleUpdatePost(post.id, "post_date", e.target.value)}
-                      placeholder="Tarih (isteğe bağlı)"
-                      className="w-full"
-                    />
+                    <div className="flex-1 min-w-0 space-y-2">
+                      <Input
+                        placeholder="Açıklama (isteğe bağlı)"
+                        value={post.caption || ""}
+                        onChange={(e) => handleUpdatePost(post.id, "caption", e.target.value)}
+                        className="w-full"
+                      />
+                      <Input
+                        type="date"
+                        value={post.post_date ? new Date(post.post_date).toISOString().slice(0, 10) : ""}
+                        onChange={(e) => handleUpdatePost(post.id, "post_date", e.target.value)}
+                        placeholder="Tarih (isteğe bağlı)"
+                        className="w-full"
+                      />
+                    </div>
+                    <div className="flex flex-col justify-center gap-1 flex-shrink-0">
+                      <button
+                        onClick={() => handleUpdatePostOrder(post.id, "up")}
+                        disabled={index === 0}
+                        className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
+                        title="Yukarı taşı"
+                      >
+                        ▲
+                      </button>
+                      <button
+                        onClick={() => handleUpdatePostOrder(post.id, "down")}
+                        disabled={index === posts.length - 1}
+                        className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
+                        title="Aşağı taşı"
+                      >
+                        ▼
+                      </button>
+                      <button
+                        onClick={() => handleDeletePost(post.id)}
+                        className="p-2 hover:bg-destructive/10 rounded"
+                        title="Sil"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-500" />
+                      </button>
+                    </div>
                   </div>
-                  <div className="flex flex-col justify-center gap-1 flex-shrink-0">
-                    <button
-                      onClick={() => handleUpdatePostOrder(post.id, "up")}
-                      disabled={index === 0}
-                      className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
-                      title="Yukarı taşı"
-                    >
-                      ▲
-                    </button>
-                    <button
-                      onClick={() => handleUpdatePostOrder(post.id, "down")}
-                      disabled={index === posts.length - 1}
-                      className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
-                      title="Aşağı taşı"
-                    >
-                      ▼
-                    </button>
-                    <button
-                      onClick={() => handleDeletePost(post.id)}
-                      className="p-2 hover:bg-destructive/10 rounded"
-                      title="Sil"
-                    >
-                      <Trash2 className="w-4 h-4 text-red-500" />
-                    </button>
+                ))}
+                {/* Save Button for Posts */}
+                <div className="fixed md:relative bottom-0 left-0 right-0 p-4 md:p-0 bg-background border-t md:border-t-0 border-border md:pt-4 z-40 mb-16 md:mb-0">
+                  <div className="max-w-2xl mx-auto">
+                    <Button onClick={handleSaveProfile} disabled={isSaving} className="w-full md:w-auto">
+                      {isSaving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
+                    </Button>
                   </div>
                 </div>
-              ))
+              </>
             ) : (
               <p className="text-center text-muted-foreground py-8">Henüz gönderin yok</p>
             )}

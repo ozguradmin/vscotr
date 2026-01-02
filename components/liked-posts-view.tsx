@@ -73,7 +73,7 @@ export function LikedPostsView({ posts, currentUserId }: LikedPostsViewProps) {
         <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
           <Link href="/akis" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR 9</span>
+            <span className="font-semibold">VSCO TR 10</span>
           </Link>
           <div className="flex items-center gap-1">
             <button className="p-2 hover:bg-accent rounded-full" onClick={() => setSearchOpen(true)}><Search className="w-5 h-5" /></button>

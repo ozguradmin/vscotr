@@ -24,6 +24,7 @@ interface Profile {
     bio: string | null
     avatar_url: string | null
     member_badge: string | null
+    location?: string | null
 }
 
 interface Post {
@@ -427,7 +428,7 @@ export function ProfileView({
                 <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
                     <Link href="/" className="flex items-center gap-2">
                         <VscoLogo className="w-8 h-8" />
-                        <span className="font-semibold">VSCO TR 9</span>
+                        <span className="font-semibold">VSCO TR 10</span>
                     </Link>
                     <div className="flex items-center gap-1">
                         <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)} aria-label="Arama">
@@ -484,7 +485,32 @@ export function ProfileView({
                                 </span>
                             )}
                         </div>
-                        {profile.bio && <p className="text-muted-foreground mb-4">{profile.bio}</p>}
+                        {profile.bio && <p className="text-muted-foreground mb-2">{profile.bio}</p>}
+
+                        {/* Location */}
+                        {profile.location && (
+                            <p className="text-muted-foreground text-sm mb-2 flex items-center gap-1">
+                                <MapPin className="w-3 h-3" />
+                                {profile.location}
+                            </p>
+                        )}
+
+                        {/* Links */}
+                        {links && links.length > 0 && (
+                            <div className="flex flex-wrap gap-2 mb-4">
+                                {links.map(link => (
+                                    <a
+                                        key={link.id}
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-sm text-blue-600 hover:underline"
+                                    >
+                                        {link.label || link.url}
+                                    </a>
+                                ))}
+                            </div>
+                        )}
 
                         {currentUserId && profile.id !== currentUserId && (
                             <Button onClick={handleFollow} className="w-full md:w-auto">
@@ -515,54 +541,54 @@ export function ProfileView({
 
                         {/* Toolbar: Sort, Filter, Create (Only Own Profile) */}
                         {isOwnProfile && activeTab === "posts" && (
-                            <div className="w-full max-w-2xl flex items-center justify-between mt-4 pb-2 border-b border-gray-100">
-                                <div className="flex gap-2 relative">
-                                    {/* Sort Button */}
-                                    <div className="relative">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-xs flex gap-1 h-7 text-muted-foreground"
-                                            onClick={() => setShowSortMenu(!showSortMenu)}
-                                        >
-                                            <Shuffle className="w-3 h-3" />
-                                            {sortOrder === 'newest' ? 'Yeni' : sortOrder === 'oldest' ? 'Eski' : 'Karışık'}
-                                        </Button>
-                                        {showSortMenu && (
-                                            <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[120px] py-1 flex flex-col">
-                                                <button onClick={() => handleSortChange('newest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Yeni</button>
-                                                <button onClick={() => handleSortChange('oldest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Eski</button>
-                                                <button onClick={() => handleSortChange('shuffle')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Karıştır</button>
-                                            </div>
-                                        )}
-                                    </div>
-
-                                    {/* Filter Button */}
-                                    <div className="relative">
-                                        <Button
-                                            variant="ghost"
-                                            size="sm"
-                                            className="text-xs flex gap-1 h-7 text-muted-foreground"
-                                            onClick={() => setShowFilterMenu(!showFilterMenu)}
-                                        >
-                                            <Filter className="w-3 h-3" />
-                                            Ton: {filterType === 'default' ? 'Normal' : filterType === 'dark' ? 'Koyu' : filterType === 'light' ? 'Açık' : 'Soft'}
-                                        </Button>
-                                        {showFilterMenu && (
-                                            <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[120px] py-1 flex flex-col">
-                                                <button onClick={() => handleFilterChange('default')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Varsayılan</button>
-                                                <button onClick={() => handleFilterChange('dark')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Koyu Ton</button>
-                                                <button onClick={() => handleFilterChange('light')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Açık Ton</button>
-                                                <button onClick={() => handleFilterChange('soft')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Soft</button>
-                                            </div>
-                                        )}
-                                    </div>
+                            <div className="w-full flex flex-wrap items-center gap-2 mt-4 pb-2 border-b border-gray-100">
+                                {/* Sort Button */}
+                                <div className="relative">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs flex gap-1 h-7 px-2 text-muted-foreground"
+                                        onClick={() => setShowSortMenu(!showSortMenu)}
+                                    >
+                                        <Shuffle className="w-3 h-3" />
+                                        <span className="hidden sm:inline">{sortOrder === 'newest' ? 'Yeni' : sortOrder === 'oldest' ? 'Eski' : 'Karışık'}</span>
+                                    </Button>
+                                    {showSortMenu && (
+                                        <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[100px] py-1 flex flex-col">
+                                            <button onClick={() => handleSortChange('newest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Yeni</button>
+                                            <button onClick={() => handleSortChange('oldest')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">En Eski</button>
+                                            <button onClick={() => handleSortChange('shuffle')} className="text-left px-3 py-1.5 hover:bg-accent text-xs">Karıştır</button>
+                                        </div>
+                                    )}
                                 </div>
 
+                                {/* Filter Button */}
+                                <div className="relative">
+                                    <Button
+                                        variant="ghost"
+                                        size="sm"
+                                        className="text-xs flex gap-1 h-7 px-2 text-muted-foreground"
+                                        onClick={() => setShowFilterMenu(!showFilterMenu)}
+                                    >
+                                        <Filter className="w-3 h-3" />
+                                        <span className="hidden sm:inline">Ton</span>
+                                    </Button>
+                                    {showFilterMenu && (
+                                        <div className="absolute top-full left-0 mt-1 bg-background border rounded shadow-lg z-20 min-w-[100px] py-1 flex flex-col">
+                                            <button onClick={() => handleFilterChange('default')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'default' ? 'bg-accent' : ''}`}>Normal</button>
+                                            <button onClick={() => handleFilterChange('dark')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'dark' ? 'bg-accent' : ''}`}>Koyu</button>
+                                            <button onClick={() => handleFilterChange('light')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'light' ? 'bg-accent' : ''}`}>Açık</button>
+                                            <button onClick={() => handleFilterChange('soft')} className={`text-left px-3 py-1.5 hover:bg-accent text-xs ${filterType === 'soft' ? 'bg-accent' : ''}`}>Soft</button>
+                                        </div>
+                                    )}
+                                </div>
+
+                                <div className="flex-1" />
+
                                 <Link href="/olustur">
-                                    <Button size="sm" className="h-7 text-xs bg-foreground text-background hover:bg-foreground/90">
-                                        <Plus className="w-3 h-3 mr-1" />
-                                        Yeni Post
+                                    <Button size="sm" className="h-7 text-xs px-2 bg-foreground text-background hover:bg-foreground/90">
+                                        <Plus className="w-3 h-3" />
+                                        <span className="hidden sm:inline ml-1">Yeni</span>
                                     </Button>
                                 </Link>
                             </div>
@@ -600,12 +626,14 @@ export function ProfileView({
                             onClick={() => setSelectedPostIndex(index)}
                             className="block w-full overflow-hidden break-inside-avoid relative group"
                         >
-                            <VscoImage
-                                src={post.image_url || "/placeholder.svg"}
-                                alt={post.caption || ""}
-                                aspectRatio={post.aspect_ratio || 1}
-                                className="w-full h-full"
-                            />
+                            <div style={{ filter: getFilterStyle() }}>
+                                <VscoImage
+                                    src={post.image_url || "/placeholder.svg"}
+                                    alt={post.caption || ""}
+                                    aspectRatio={post.aspect_ratio || 1}
+                                    className="w-full h-full"
+                                />
+                            </div>
                             <div className="absolute inset-0 bg-black/10 opacity-0 group-hover:opacity-100 transition-opacity" />
                             {activeTab === "reposts" && (
                                 <div className="absolute top-2 right-2 p-1.5 bg-black/50 text-white rounded-full">

@@ -6,6 +6,7 @@ import { Models } from "appwrite"
 
 interface AuthContextType {
     user: Models.User<Models.Preferences> | null
+    currentProfile: any | null // Add profile data
     loading: boolean
     login: (user: Models.User<Models.Preferences>) => void
     logout: () => Promise<void>
@@ -14,16 +15,36 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
+import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { Query } from "appwrite"
+
 export function AuthProvider({ children }: { children: React.ReactNode }) {
     const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null)
+    const [currentProfile, setCurrentProfile] = useState<any | null>(null)
     const [loading, setLoading] = useState(true)
 
     const refreshUser = async () => {
         try {
             const userData = await account.get()
             setUser(userData)
+
+            // Allow fetch to fail if profile not created yet
+            try {
+                const profileRes = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                    [Query.equal("$id", userData.$id)] // Assuming profile ID same as User ID
+                )
+                if (profileRes.documents.length > 0) {
+                    setCurrentProfile(profileRes.documents[0])
+                }
+            } catch (pErr) {
+                console.log("Profile fetch in auth ignored", pErr)
+            }
+
         } catch (error) {
             setUser(null)
+            setCurrentProfile(null)
         } finally {
             setLoading(false)
         }
@@ -35,15 +56,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = (user: Models.User<Models.Preferences>) => {
         setUser(user)
+        refreshUser() // Fetch profile after manual login set
     }
 
     const logout = async () => {
         await account.deleteSession('current')
         setUser(null)
+        setCurrentProfile(null)
     }
 
     return (
-        <AuthContext.Provider value={{ user, loading, login, logout, refreshUser }}>
+        <AuthContext.Provider value={{ user, currentProfile, loading, login, logout, refreshUser }}>
             {children}
         </AuthContext.Provider>
     )

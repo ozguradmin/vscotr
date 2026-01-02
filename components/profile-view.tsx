@@ -361,6 +361,67 @@ export function ProfileView({
         }
     }
 
+    const fetchFollowersList = async () => {
+        try {
+            const followsRes = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                [Query.equal("following_id", profile.id), Query.limit(50)]
+            )
+
+            if (followsRes.documents.length > 0) {
+                const followerIds = followsRes.documents.map(f => f.follower_id)
+                const profilesRes = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                    [Query.equal("$id", followerIds)]
+                )
+                setFollowersList(profilesRes.documents)
+            } else {
+                setFollowersList([])
+            }
+        } catch (e) {
+            console.error("Fetch followers list error", e)
+            setFollowersList([])
+        }
+    }
+
+    const fetchFollowingList = async () => {
+        try {
+            const followsRes = await databases.listDocuments(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                [Query.equal("follower_id", profile.id), Query.limit(50)]
+            )
+
+            if (followsRes.documents.length > 0) {
+                const followingIds = followsRes.documents.map(f => f.following_id)
+                const profilesRes = await databases.listDocuments(
+                    APPWRITE_CONFIG.DATABASE_ID,
+                    APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                    [Query.equal("$id", followingIds)]
+                )
+                setFollowingList(profilesRes.documents)
+            } else {
+                setFollowingList([])
+            }
+        } catch (e) {
+            console.error("Fetch following list error", e)
+            setFollowingList([])
+        }
+    }
+
+    // Open modal handlers
+    const openFollowersModal = () => {
+        fetchFollowersList()
+        setShowFollowersModal(true)
+    }
+
+    const openFollowingModal = () => {
+        fetchFollowingList()
+        setShowFollowingModal(true)
+    }
+
     const checkFollowStatus = async () => {
         if (!currentUserId) return
         try {
@@ -628,10 +689,10 @@ export function ProfileView({
                                     </Button>
                                 </div>
                                 <div className="flex gap-4 text-sm text-muted-foreground">
-                                    <button onClick={() => setShowFollowersModal(true)} className="hover:text-foreground hover:underline">
+                                    <button onClick={openFollowersModal} className="hover:text-foreground hover:underline">
                                         <span className="font-bold text-foreground">{followersCount}</span> takipçi
                                     </button>
-                                    <button onClick={() => setShowFollowingModal(true)} className="hover:text-foreground hover:underline">
+                                    <button onClick={openFollowingModal} className="hover:text-foreground hover:underline">
                                         <span className="font-bold text-foreground">{followingCount}</span> takip
                                     </button>
                                 </div>
@@ -942,8 +1003,85 @@ export function ProfileView({
                         </div>
                     </div>
                 </div>
-            )
-            }
+            )}
+
+            {/* Followers Modal */}
+            {showFollowersModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowFollowersModal(false)}>
+                    <div className="bg-background rounded-lg max-w-sm w-full mx-4 max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <h2 className="font-semibold">Takipçiler</h2>
+                            <button onClick={() => setShowFollowersModal(false)} className="p-1 hover:bg-accent rounded-full">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto max-h-[60vh] p-2">
+                            {followersList.length > 0 ? (
+                                followersList.map(follower => (
+                                    <Link
+                                        key={follower.$id}
+                                        href={`/${follower.username}`}
+                                        onClick={() => setShowFollowersModal(false)}
+                                        className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
+                                    >
+                                        <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
+                                            {follower.avatar_url ? (
+                                                <img src={follower.avatar_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                                    {follower.username[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="font-medium">{follower.username}</span>
+                                    </Link>
+                                ))
+                            ) : (
+                                <p className="text-center text-muted-foreground py-8">Henüz takipçi yok</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
+
+            {/* Following Modal */}
+            {showFollowingModal && (
+                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowFollowingModal(false)}>
+                    <div className="bg-background rounded-lg max-w-sm w-full mx-4 max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                        <div className="flex items-center justify-between p-4 border-b border-border">
+                            <h2 className="font-semibold">Takip Edilenler</h2>
+                            <button onClick={() => setShowFollowingModal(false)} className="p-1 hover:bg-accent rounded-full">
+                                <X className="w-5 h-5" />
+                            </button>
+                        </div>
+                        <div className="overflow-y-auto max-h-[60vh] p-2">
+                            {followingList.length > 0 ? (
+                                followingList.map(following => (
+                                    <Link
+                                        key={following.$id}
+                                        href={`/${following.username}`}
+                                        onClick={() => setShowFollowingModal(false)}
+                                        className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
+                                    >
+                                        <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
+                                            {following.avatar_url ? (
+                                                <img src={following.avatar_url} alt="" className="w-full h-full object-cover" />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                                    {following.username[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <span className="font-medium">{following.username}</span>
+                                    </Link>
+                                ))
+                            ) : (
+                                <p className="text-center text-muted-foreground py-8">Henüz kimseyi takip etmiyor</p>
+                            )}
+                        </div>
+                    </div>
+                </div>
+            )}
 
             <MobileTabBar currentUserId={currentUserId} username={currentUsername} />
         </div >

@@ -40,9 +40,9 @@ export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: 
         {currentUserId && (
           <>
             <Link
-              href={`/ ${displayUsername} `}
+              href={`/${displayUsername}`}
               onClick={onClose}
-              className="text-3xl font-light hover:text-muted-foreground transition-colors"
+              className="block text-xl font-medium hover:text-primary transition-colors"
             >
               Profil
             </Link>

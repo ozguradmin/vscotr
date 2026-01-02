@@ -60,14 +60,14 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
         const profilesRes = await databases.listDocuments(
           APPWRITE_CONFIG.DATABASE_ID,
           APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-          [Query.search("username", debouncedQuery), Query.limit(5)]
+          [Query.startsWith("username", debouncedQuery), Query.limit(5)]
         ).catch(() => ({ documents: [] })) // Fail safe
 
         // Search posts (caption)
         const postsRes = await databases.listDocuments(
           APPWRITE_CONFIG.DATABASE_ID,
           APPWRITE_CONFIG.COLLECTIONS.POSTS,
-          [Query.search("caption", debouncedQuery), Query.limit(9)]
+          [Query.startsWith("caption", debouncedQuery), Query.limit(9)]
         ).catch(() => ({ documents: [] }))
 
         // Fetch profiles for posts

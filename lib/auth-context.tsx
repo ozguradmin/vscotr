@@ -56,13 +56,23 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const login = (user: Models.User<Models.Preferences>) => {
         setUser(user)
-        refreshUser() // Fetch profile after manual login set
+        checkUser() // Fetch profile after manual login set
     }
 
     const logout = async () => {
-        await account.deleteSession('current')
-        setUser(null)
-        setCurrentProfile(null)
+        try {
+            await account.deleteSession("current")
+            setUser(null)
+            setCurrentProfile(null)
+            router.push("/giris")
+        } catch (error) {
+            console.error("Logout failed", error)
+        }
+    }
+
+    // New refreshUser function that calls checkUser
+    const refreshUser = async () => {
+        await checkUser()
     }
 
     return (
@@ -79,3 +89,4 @@ export function useAuth() {
     }
     return context
 }
+```

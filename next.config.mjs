@@ -7,8 +7,15 @@ const nextConfig = {
     remotePatterns: [
       {
         protocol: 'https',
-        hostname: 'fsvihpyfvvxvtycfozvb.supabase.co',
-        pathname: '/storage/v1/object/**',
+        hostname: 'vsco.co',
+      },
+      {
+        protocol: 'https',
+        hostname: 'fra.cloud.appwrite.io',
+      },
+      {
+        protocol: 'https',
+        hostname: 'cloud.appwrite.io',
       },
     ],
     // Görsel boyutları - mobil ve desktop için

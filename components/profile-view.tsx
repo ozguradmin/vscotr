@@ -25,6 +25,8 @@ interface Profile {
     avatar_url: string | null
     member_badge: string | null
     location?: string | null
+    grid_sort?: string | null
+    grid_filter?: string | null
 }
 
 interface Post {
@@ -78,36 +80,42 @@ export function ProfileView({
     const [posts, setPosts] = useState(initialPosts)
     const [activeTab, setActiveTab] = useState<"posts" | "reposts">("posts")
 
-    // Sort & Filter States - Load from localStorage
+    // Sort & Filter States - Load from profile (database)
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`profile_sort_${profile.id}`)
-            if (saved === 'newest' || saved === 'oldest' || saved === 'shuffle') return saved
-        }
+        const saved = profile.grid_sort
+        if (saved === 'newest' || saved === 'oldest' || saved === 'shuffle') return saved
         return "newest"
     })
     const [filterType, setFilterType] = useState<"default" | "dark" | "light" | "soft">(() => {
-        if (typeof window !== 'undefined') {
-            const saved = localStorage.getItem(`profile_filter_${profile.id}`)
-            if (saved === 'default' || saved === 'dark' || saved === 'light' || saved === 'soft') return saved
-        }
+        const saved = profile.grid_filter
+        if (saved === 'default' || saved === 'dark' || saved === 'light' || saved === 'soft') return saved
         return "default"
     })
     const [showSortMenu, setShowSortMenu] = useState(false)
     const [showFilterMenu, setShowFilterMenu] = useState(false)
 
-    // Save to localStorage when changed
+    // Save to database when changed (only for own profile)
     useEffect(() => {
-        if (typeof window !== 'undefined' && isOwnProfile) {
-            localStorage.setItem(`profile_sort_${profile.id}`, sortOrder)
+        if (isOwnProfile && sortOrder !== (profile.grid_sort || 'newest')) {
+            databases.updateDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                profile.id,
+                { grid_sort: sortOrder }
+            ).catch(err => console.error('Failed to save grid_sort:', err))
         }
-    }, [sortOrder, profile.id, isOwnProfile])
+    }, [sortOrder, profile.id, isOwnProfile, profile.grid_sort])
 
     useEffect(() => {
-        if (typeof window !== 'undefined' && isOwnProfile) {
-            localStorage.setItem(`profile_filter_${profile.id}`, filterType)
+        if (isOwnProfile && filterType !== (profile.grid_filter || 'default')) {
+            databases.updateDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+                profile.id,
+                { grid_filter: filterType }
+            ).catch(err => console.error('Failed to save grid_filter:', err))
         }
-    }, [filterType, profile.id, isOwnProfile])
+    }, [filterType, profile.id, isOwnProfile, profile.grid_filter])
 
     // Followers States
     const [followersCount, setFollowersCount] = useState(0)

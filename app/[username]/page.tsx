@@ -53,7 +53,9 @@ async function ProfileContent({ username }: { username: string }) {
       avatar_url: profileDoc.avatar_url,
       bio: profileDoc.bio,
       member_badge: profileDoc.member_badge,
-      location: profileDoc.location
+      location: profileDoc.location,
+      grid_sort: profileDoc.grid_sort,
+      grid_filter: profileDoc.grid_filter
     }
 
     // Fetch profile links

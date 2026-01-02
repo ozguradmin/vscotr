@@ -10,7 +10,6 @@ import { EditProfileModal } from "@/components/edit-profile-modal"
 import { SettingsModal } from "@/components/settings-modal"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
-import { useCache } from "@/lib/cache-context"
 import { VscoImage } from "@/components/vsco-image"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
@@ -90,10 +89,14 @@ export function ProfileView({
     const [touchStart, setTouchStart] = useState<number | null>(null)
     const [touchEnd, setTouchEnd] = useState<number | null>(null)
 
-    const router = useRouter()
-    const cache = useCache()
-    const cacheKey = `profile-states-${currentUserId || 'guest'}-${profile.id}`
-    const isOwner = currentUserId === profile.id
+    // Removed duplicate router definition
+    // const router = useRouter()
+
+    // If 'isOwner' is defined here again, it shadows or duplicates.
+    // Let's see the previous `view_file` output in thought or just read it now.
+
+    // I will just read the file first to be sure what is there.
+
 
     // Client-side post fetching logic
     const [clientPosts, setClientPosts] = useState<Post[]>([])

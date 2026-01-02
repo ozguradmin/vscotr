@@ -15,15 +15,18 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
     const showTabBar = user && !isAuthPage
 
+    const username = currentProfile?.username || user?.name; // Define username once
+
     return (
-        <>
+        <div className={user ? "pb-16 md:pb-0" : ""}>
             {children}
             {showTabBar && (
                 <MobileTabBar
                     currentUserId={user.$id}
-                    username={currentProfile?.username || user.name} // Prefer profile username
+                    username={username} // Prefer profile username
                 />
             )}
-        </>
+        </div>
     )
 }
+```

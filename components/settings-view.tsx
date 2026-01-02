@@ -116,8 +116,30 @@ export function SettingsView({
 
   const handleSaveProfile = async () => {
     setIsSaving(true)
+    setAccountError(null)
 
     try {
+      // 1. Check Username Uniqueness if changed
+      if (formData.username !== profile?.username) {
+        if (formData.username.length < 3) {
+          setAccountError("Kullanıcı adı en az 3 karakter olmalı")
+          setIsSaving(false)
+          return
+        }
+
+        const existingUsers = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+          [Query.equal("username", formData.username.toLowerCase())]
+        )
+
+        if (existingUsers.documents.length > 0 && existingUsers.documents[0].$id !== userId) {
+          setAccountError("Bu kullanıcı adı zaten alınmış")
+          setIsSaving(false)
+          return
+        }
+      }
+
       // Update Profile
       await databases.updateDocument(
         APPWRITE_CONFIG.DATABASE_ID,
@@ -165,9 +187,12 @@ export function SettingsView({
         router.push(`/${formData.username}`)
         router.refresh()
       }, 1000)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Kaydetme hatası:", error)
-      showToast("Kaydetme sırasında bir hata oluştu")
+      showToast("Kaydetme sırasında hata: " + (error?.message || "Bilinmeyen hata"))
+      if (error?.message?.includes("Unknown attribute")) {
+        setAccountError("Sistem hatası: Veritabanı şeması eksik. Lütfen geliştiriciye bildirin (Unknown Attribute).")
+      }
     } finally {
       setIsSaving(false)
     }
@@ -454,13 +479,15 @@ export function SettingsView({
             </div>
 
             <div>
-              <Label htmlFor="display_name">Görünen İsim</Label>
+              <Label htmlFor="username">Kullanıcı Adı</Label>
               <Input
-                id="display_name"
-                value={formData.display_name}
-                onChange={(e) => setFormData({ ...formData, display_name: e.target.value })}
+                id="username"
+                value={formData.username}
+                onChange={(e) => setFormData({ ...formData, username: e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, "") })}
                 className="mt-1"
+                placeholder="kullaniciadi"
               />
+              <p className="text-xs text-muted-foreground mt-1">Sadece küçük harf, rakam ve alt çizgi kullanılabilir.</p>
             </div>
 
             <div>
@@ -524,6 +551,7 @@ export function SettingsView({
                 <Button onClick={handleSaveProfile} disabled={isSaving} className="w-full md:w-auto">
                   {isSaving ? "Kaydediliyor..." : "Değişiklikleri Kaydet"}
                 </Button>
+                {accountError && <p className="text-sm text-red-500 mt-2">{accountError}</p>}
               </div>
             </div>
           </div>
@@ -624,22 +652,6 @@ export function SettingsView({
             <div className="p-4 bg-muted rounded-lg">
               <p className="text-sm text-muted-foreground">E-posta</p>
               <p className="font-medium">{userEmail}</p>
-            </div>
-
-            <div className="space-y-4">
-              <h3 className="font-medium">Kullanıcı Adını Değiştir</h3>
-              <div>
-                <Label htmlFor="new_username">Yeni Kullanıcı Adı</Label>
-                <Input
-                  id="new_username"
-                  value={newUsername}
-                  onChange={(e) => setNewUsername(e.target.value.toLowerCase().replace(/[^a-z0-9_]/g, ""))}
-                  className="mt-1"
-                />
-              </div>
-              <Button onClick={handleChangeUsername} variant="outline">
-                Kullanıcı Adını Değiştir
-              </Button>
             </div>
 
             <div className="space-y-4">

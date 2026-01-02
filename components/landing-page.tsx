@@ -8,6 +8,7 @@ import { Query } from "appwrite"
 import { useAuth } from "@/lib/auth-context"
 
 import { VscoImage } from "@/components/vsco-image"
+import { X } from "lucide-react"
 
 export function LandingPage() {
   const [featuredPosts, setFeaturedPosts] = useState<any[]>([])

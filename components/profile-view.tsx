@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart } from "lucide-react"
+import { Search, Menu, X, Share2, Grid, RotateCcw, ChevronLeft, ChevronRight, Heart, MapPin } from "lucide-react"
 import { VscoLogo } from "@/components/vsco-logo"
 import { SearchModal } from "@/components/search-modal"
 import { MobileMenu } from "@/components/mobile-menu"
@@ -13,6 +13,8 @@ import Link from "next/link"
 import { VscoImage } from "@/components/vsco-image"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
+import { Button } from "@/components/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { ID, Query } from "appwrite"
 
 interface Profile {
@@ -26,20 +28,27 @@ interface Profile {
 
 interface Post {
     id: string
+    $id?: string
     image_url: string
     caption: string | null
     aspect_ratio: number
     created_at: string
 }
 
+interface Repost {
+    id: string
+    $id?: string
+    profile_id: string
+    post_id: string
+    created_at: string
+    posts: Post // Expanded relation
+}
+
 interface ProfileViewProps {
     profile: Profile
-    isOwner: boolean
+    isOwnProfile: boolean
     posts: Post[]
-    reposts: Post[]
     reposts: Repost[]
-    currentUserId?: string // Legacy prop, used for fallback if context fails, but we rely on context now
-    currentUsername?: string
     links: { id: string; label: string; url: string }[]
 }
 

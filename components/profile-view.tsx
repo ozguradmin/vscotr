@@ -109,7 +109,7 @@ export function ProfileView({
                     .from("posts")
                     .select("id, image_url, caption, aspect_ratio, order_index, user_id, created_at")
                     .eq("user_id", profile.id)
-                    .order("order_index", { ascending: true })
+                    .order("created_at", { ascending: false }) // SORGULAMA DEĞİŞTİRİLDİ: 'order_index' yerine 'created_at' (Index garantisi için)
                     .limit(15)
 
                 console.log("[Profile] 3. Posts result:", { count: postsData?.length, error: postsError })

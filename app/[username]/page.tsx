@@ -45,84 +45,24 @@ async function ProfileContent({ username }: { username: string }) {
   const userResult = await supabase.auth.getUser()
   const currentUser = userResult.data.user
 
-  // Posts query - simplified to avoid timeout
-  const { data: postsData, error: postsError } = await supabase
-    .from("posts")
-    .select("id, image_url, caption, post_date, aspect_ratio, order_index, user_id, created_at")
-    .eq("user_id", profile.id)
-    .order("order_index", { ascending: true })
-    .limit(15)
-
-  if (postsError) {
-    console.error("Error fetching posts:", postsError)
-  }
-
-  const posts = postsData || []
-
-  // Links ve reposts paralel
-  const [linksResult, repostsResult] = await Promise.all([
-    supabase
-      .from("profile_links")
-      .select("id, label, url")
-      .eq("profile_id", profile.id)
-      .order("order_index", { ascending: true })
-      .limit(10),
-    supabase
-      .from("reposts")
-      .select("id, created_at, post_id")
-      .eq("user_id", profile.id)
-      .order("created_at", { ascending: false })
-      .limit(20),
-  ])
-
-  const links = linksResult.data || []
-
-  // Repost'ların post detaylarını ayrı çek
-  let reposts: any[] = []
-  if (repostsResult.data && repostsResult.data.length > 0) {
-    const postIds = repostsResult.data.map(r => r.post_id)
-    const { data: repostPosts } = await supabase
-      .from("posts")
-      .select("id, image_url, caption, aspect_ratio, user_id")
-      .in("id", postIds)
-
-    reposts = repostsResult.data.map(r => ({
-      ...r,
-      posts: repostPosts?.find(p => p.id === r.post_id) || null
-    })).filter(r => r.posts)
-  }
-
-  // DEBUG: Log v6
-  console.log('[Profile Debug v6]', {
-    username: profile.username,
-    postsCount: posts.length,
-    hasCurrentUser: !!currentUser,
-  })
+  // Server-side fetching kaldırıldı (Hız için client'a devredildi)
+  const posts: any[] = []
+  const reposts: any[] = []
+  const links: any[] = []
 
   let isFollowing = false
   if (currentUser && currentUser.id !== profile.id) {
-    return (
-      <ProfileView
-        profile={profile}
-        posts={posts}
-        links={links}
-        reposts={reposts}
-        currentUserId={currentUser?.id}
-        isFollowing={false} // Client-side will fetch this
-        isOwnProfile={currentUser?.id === profile.id}
-      />
-    )
+    // isFollowing client-side çekilecek
   }
 
   return (
     <ProfileView
       profile={profile}
-      posts={posts}
-      links={links}
-      reposts={reposts}
+      posts={[]} // Boş dizi gönderiyoruz, client dolduracak
+      links={[]} // Linkleri de client çekebilir veya buraya ekleyebiliriz ama hız için boş
+      reposts={[]} // Repostlar da client'a emanet
       currentUserId={currentUser?.id}
-      isFollowing={false}
-      isOwnProfile={currentUser?.id === profile.id}
+      isOwner={currentUser?.id === profile.id}
     />
   )
 }

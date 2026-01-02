@@ -105,7 +105,7 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
               className="w-full pl-9 pr-4 py-2 bg-muted rounded-full focus:outline-none focus:ring-1 focus:ring-foreground"
             />
           </div>
-          <button onClick={onClose} className="p-2 hover:bg-accent rounded-full text-sm font-medium">
+          <button onClick={onClose} className="p-2 hover:bg-accent rounded-full text-sm font-medium" aria-label="Arama İptal">
             İptal
           </button>
         </div>

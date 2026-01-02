@@ -34,6 +34,7 @@ interface FeedViewProps {
 export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProps) {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchOpen, setSearchOpen] = useState(false)
+  const [selectedPost, setSelectedPost] = useState<Post | null>(null) // Explicitly manage post state if used
   const [postStates, setPostStates] = useState<
     Record<string, { liked: boolean; reposted: boolean; likesCount: number }>
   >({})
@@ -166,14 +167,15 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
             <span className="font-semibold">VSCO TR 7</span>
           </Link>
           <div className="flex items-center gap-1">
-            <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)}>
-              <Search className="w-5 h-5" />
+            <button className="p-2 hover:bg-accent rounded-full transition-colors" onClick={() => setSearchOpen(true)} aria-label="Arama">
+              <Search className="w-6 h-6" />
             </button>
             <button
               className="p-2 hover:bg-accent rounded-full transition-colors"
               onClick={() => setMenuOpen(!menuOpen)}
+              aria-label="Menü"
             >
-              {menuOpen ? <X className="w-5 h-5" /> : <Menu className="w-5 h-5" />}
+              {menuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
             </button>
           </div>
         </div>

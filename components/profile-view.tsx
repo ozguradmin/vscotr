@@ -103,51 +103,70 @@ export function ProfileView({
             try {
                 console.log("[Profile] 1. Starting fetch for:", profile.id)
 
-                // 1. Fetch Posts
-                console.log("[Profile] 2. Querying posts...")
-                // 1. Fetch Posts (RPC ile - Çok daha hızlı)
-                console.log("[Profile] 2. Querying posts via RPC...")
+                // 1. Fetch Posts via Optimized RPC (Single Request)
+                console.log("[Profile] 2. Querying posts and profile via RPC...")
                 const { data: postsData, error: postsError } = await supabase
                     .rpc("get_profile_posts", {
                         p_user_id: profile.id,
                         p_limit: 15,
                         p_offset: 0
                     })
-                // RPC direct response matches our interface
-                // No need for .select() or .order() here as it's in the SQL function
 
-                console.log("[Profile] 3. Posts result:", { count: postsData?.length, error: postsError })
+                console.log("[Profile] 3. RPC result:", { count: postsData?.length, error: postsError })
 
                 if (postsError) throw postsError
-                setClientPosts(postsData || [])
-                setIsLoading(false) // Posts loaded, show them immediately
 
-                // 2. Fetch Reposts
+                if (!postsData || postsData.length === 0) {
+                    setPosts([])
+                    setIsLoading(false)
+                    return
+                }
+
+                // 2. Map flat RPC data to nested structure
+                const formattedPosts: Post[] = postsData.map((p: any) => ({
+                    id: p.id,
+                    image_url: p.image_url,
+                    caption: p.caption,
+                    aspect_ratio: p.aspect_ratio || 1, // Fallback
+                    created_at: p.created_at,
+                    user_id: p.user_id, // Keep for reference
+                    order_index: p.order_index,
+                    profiles: { // RPC now joins this for us!
+                        id: p.user_id,
+                        username: p.username || profile.username || "unknown", // Fallback to prop
+                        avatar_url: p.avatar_url || profile.avatar_url,
+                        member_badge: p.member_badge || profile.member_badge
+                    }
+                }))
+
+                setPosts(formattedPosts)
+
+                // Fetch reposts separately (still needed as it's a different table/relation)
                 console.log("[Profile] 4. Querying reposts...")
                 const { data: repostsData, error: repostsError } = await supabase
                     .from("reposts")
-                    .select("id, created_at, post_id")
+                    .select(`
+                        post_id,
+                        created_at,
+                        posts (
+                            id, image_url, caption, aspect_ratio, created_at, user_id, order_index,
+                            profiles (id, username, avatar_url, member_badge)
+                        )
+                    `)
                     .eq("user_id", profile.id)
                     .order("created_at", { ascending: false })
-                    .limit(20)
 
                 console.log("[Profile] 5. Reposts result:", { count: repostsData?.length, error: repostsError })
 
-                if (repostsError) throw repostsError
-
-                if (repostsData && repostsData.length > 0) {
-                    const postIds = repostsData.map(r => r.post_id)
-                    const { data: repostPosts } = await supabase
-                        .from("posts")
-                        .select("id, image_url, caption, aspect_ratio, user_id, created_at")
-                        .in("id", postIds)
-
-                    const processedReposts = repostsData.map(r => ({
-                        ...r,
-                        posts: repostPosts?.find(p => p.id === r.post_id) || null
-                    })).filter(r => r.posts).map(r => r.posts)
-
-                    setClientReposts(processedReposts)
+                if (repostsData) {
+                    const formattedReposts = repostsData
+                        .filter(r => r.posts) // Filter out null posts
+                        .map(r => ({
+                            ...r.posts,
+                            // Ensure nested structure matches Post interface
+                            profiles: r.posts.profiles || { id: "unknown", username: "unknown", avatar_url: null, member_badge: null }
+                        })) as Post[]
+                    setReposts(formattedReposts)
                 }
             } catch (err: any) {
                 console.error("[Profile] CRITICAL ERROR during fetch:", err)
@@ -486,26 +505,6 @@ export function ProfileView({
                     </div>
 
                     <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
-                        {/* Low-res / Cached Thumbnail (Instant) */}
-                        <div className="absolute inset-0 z-0">
-                            <VscoImage
-                                src={selectedPost.image_url || "/placeholder.svg"}
-                                alt={selectedPost.caption || ""}
-                                layout="fill"
-                                objectFit="contain"
-                                className="bg-transparent opacity-50 blur-sm scale-105"
-                                quality={10} // Very low quality for speed
-                            />
-                        </div>
-
-                        {/* Full High-res Image (Loaded on top) */}
-                        <div className="relative w-full h-full z-10 transition-opacity duration-300">
-                            <VscoImage
-                                src={selectedPost.image_url || "/placeholder.svg"}
-                                alt={selectedPost.caption || ""}
-                                layout="fill"
-                                objectFit="contain"
-                                className="bg-transparent"
                                 quality={90}
                                 priority
                             />
@@ -577,9 +576,10 @@ export function ProfileView({
                         </div>
                     </div>
                 </div>
-            )}
+    )
+}
 
-            <MobileTabBar currentUserId={currentUserId} username={currentUsername} />
-        </div>
+<MobileTabBar currentUserId={currentUserId} username={currentUsername} />
+        </div >
     )
 }

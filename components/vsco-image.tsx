@@ -30,6 +30,7 @@ export function VscoImage({
     priority = false,
 }: VscoImageProps) {
     const [isLoading, setIsLoading] = useState(true)
+    const [error, setError] = useState(false)
 
     // Aspect ratio style calculation
     const style = aspectRatio ? { aspectRatio } : undefined
@@ -47,7 +48,7 @@ export function VscoImage({
             )}
 
             <Image
-                src={src}
+                src={error ? "/placeholder.svg" : src}
                 alt={alt}
                 fill={layout === "fill"}
                 width={layout === "responsive" ? width : undefined}
@@ -60,6 +61,10 @@ export function VscoImage({
                 quality={quality}
                 priority={priority}
                 onLoad={() => setIsLoading(false)}
+                onError={() => {
+                    setError(true)
+                    setIsLoading(false)
+                }}
                 sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
             />
         </div>

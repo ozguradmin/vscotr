@@ -121,7 +121,7 @@ export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: 
           Hizmet Şartları
         </Link>
       </nav>
-      <div className="sticky bottom-4 left-6 right-6 text-[10px] text-muted-foreground space-y-0.5 bg-background px-6 py-4">
+      <div className="sticky bottom-12 left-6 right-6 text-[10px] text-muted-foreground space-y-0.5 bg-background px-6 py-4 border-t border-border z-50">
         <p>© 2025 VSCO TR</p>
         <p>Özgür Güler tarafından geliştirildi.</p>
       </div>

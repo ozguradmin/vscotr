@@ -253,8 +253,14 @@ export function ProfileView({
                 }))
 
                 if (sortOrder === 'shuffle') {
+                    // Robust Shuffle: Assign random score deterministically from seed
                     const rnd = mulberry32(shuffleSeed)
-                    formattedPosts = formattedPosts.sort(() => rnd() - 0.5);
+                    // Map items to { item, score }
+                    const scored = formattedPosts.map(p => ({ p, score: rnd() }))
+                    // Sort by score
+                    scored.sort((a, b) => a.score - b.score)
+                    // Map back
+                    formattedPosts = scored.map(s => s.p)
                 }
 
                 setClientPosts(formattedPosts)
@@ -635,144 +641,163 @@ export function ProfileView({
             />
             <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
-            <main className="max-w-4xl mx-auto px-4 py-8 md:py-12">
-                <div className="flex flex-col md:flex-row items-center md:items-start gap-6 md:gap-12 mb-12 md:mb-16">
-                    <div className="flex-shrink-0">
-                        <div className="w-24 h-24 md:w-32 md:h-32 rounded-full overflow-hidden relative bg-muted ring-1 ring-border">
-                            {profile.avatar_url ? (
-                                <VscoImage
-                                    src={profile.avatar_url}
-                                    alt={profile.username}
-                                    className="w-full h-full"
-                                />
-                            ) : (
-                                <div className="w-full h-full flex items-center justify-center text-3xl font-light text-muted-foreground bg-muted">
-                                    {profile.username[0].toUpperCase()}
-                                </div>
-                            )}
+            <main className="max-w-2xl mx-auto px-4 py-8 md:py-12">
+                <div className="flex flex-col gap-5 md:gap-6 mb-12">
+                    {/* Row 1: Header (Avatar + Name) */}
+                    <div className="flex items-center gap-4 md:gap-5">
+                        <div className="flex-shrink-0">
+                            <div className="w-20 h-20 md:w-24 md:h-24 rounded-full overflow-hidden relative bg-muted ring-1 ring-border">
+                                {profile.avatar_url ? (
+                                    <VscoImage
+                                        src={profile.avatar_url}
+                                        alt={profile.username}
+                                        className="w-full h-full"
+                                    />
+                                ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-3xl font-light text-muted-foreground bg-muted">
+                                        {profile.username[0].toUpperCase()}
+                                    </div>
+                                )}
+                            </div>
                         </div>
-                    </div>
-
-                    <div className="flex-1 text-left w-full md:w-auto">
-                        <div className="flex flex-col md:flex-row items-start md:items-baseline gap-3 mb-4">
-                            <h1 className="text-3xl md:text-4xl font-light tracking-wide">{profile.username}</h1>
+                        <div className="flex flex-col items-start gap-1">
+                            <h1 className="text-xl md:text-2xl font-bold tracking-tight">{profile.username}</h1>
                             {profile.member_badge && (
                                 <span className="bg-foreground text-background text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-widest font-bold">
                                     {profile.member_badge}
                                 </span>
                             )}
                         </div>
+                    </div>
 
-                        {profile.bio && <p className="text-base text-foreground/80 mb-4 font-light leading-relaxed max-w-md mx-0">{profile.bio}</p>}
+                    {/* Row 2: Bio (Aligned Left) */}
+                    {profile.bio && (
+                        <p className="text-sm md:text-base font-light leading-relaxed max-w-lg text-foreground/90 pl-1">
+                            {profile.bio}
+                        </p>
+                    )}
 
-                        <div className="flex flex-wrap items-center justify-start gap-4 mb-6 text-sm text-muted-foreground font-light">
-                            {profile.location && (
-                                <span className="flex items-center gap-1">
-                                    <MapPin className="w-3 h-3" />
-                                    {profile.location}
-                                </span>
-                            )}
-                            {links && links.map(link => (
-                                <a
-                                    key={link.id}
-                                    href={link.url}
-                                    target="_blank"
-                                    rel="noopener noreferrer"
-                                    className="hover:text-foreground transition-colors flex items-center gap-1"
-                                >
-                                    <Link2 className="w-3 h-3" />
-                                    {link.label || "Link"}
-                                </a>
-                            ))}
-                        </div>
-
-                        {currentUserId && profile.id !== currentUserId && (
-                            <Button
-                                onClick={handleFollow}
-                                className="w-full md:w-auto min-w-[140px] rounded-full uppercase tracking-widest text-xs font-bold h-10 shadow-sm hover:shadow-md transition-all"
-                                variant={isFollowing ? "outline" : "default"}
-                            >
-                                {isFollowing ? "Takip Ediliyor" : "Takip Et"}
-                            </Button>
+                    {/* Row 3: Location / Links */}
+                    <div className="flex flex-col gap-2 pl-1">
+                        {profile.location && (
+                            <span className="flex items-center gap-2 text-xs md:text-sm text-muted-foreground uppercase tracking-wide">
+                                <MapPin className="w-3 h-3" />
+                                {profile.location}
+                            </span>
                         )}
-
-                        {isOwnProfile && (
-                            <div className="flex flex-col gap-6">
-                                <div className="flex items-center justify-start gap-3">
-                                    <Button variant="outline" size="sm" onClick={() => router.push('/ayarlar')} className="rounded-full px-6 text-xs uppercase tracking-wider font-medium h-9 border-foreground/20 hover:border-foreground transition-colors">
-                                        Profili Düzenle
-                                    </Button>
-                                    <Button
-                                        variant="ghost"
-                                        size="icon"
-                                        className="h-9 w-9 rounded-full hover:bg-accent"
-                                        onClick={async () => {
-                                            const shareData = { title: `${profile.username} - VSCO TR`, url: window.location.href }
-                                            try { navigator.share ? await navigator.share(shareData) : await navigator.clipboard.writeText(window.location.href) } catch { }
-                                        }}
+                        {links && links.length > 0 && (
+                            <div className="flex flex-wrap gap-4">
+                                {links.map(link => (
+                                    <a
+                                        key={link.id}
+                                        href={link.url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs md:text-sm font-medium hover:text-foreground transition-colors flex items-center gap-1 text-blue-600 dark:text-blue-400"
                                     >
-                                        <Share2 className="w-4 h-4" />
-                                    </Button>
-                                </div>
-                                <div className="flex gap-6 text-sm font-light text-muted-foreground justify-start">
-                                    <button onClick={openFollowersModal} className="hover:text-foreground transition-colors">
-                                        <strong className="font-medium text-foreground">{followersCount}</strong> takipçi
-                                    </button>
-                                    <button onClick={openFollowingModal} className="hover:text-foreground transition-colors">
-                                        <strong className="font-medium text-foreground">{followingCount}</strong> takip
-                                    </button>
-                                </div>
-                            </div>
-                        )}
-
-                        {/* Sort/Filter Toolbar (Own Profile) */}
-                        {isOwnProfile && activeTab === "posts" && (
-                            <div className="w-full flex flex-wrap items-center justify-center md:justify-start gap-2 mt-6">
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-[10px] uppercase tracking-widest h-7 px-2 text-muted-foreground hover:text-foreground"
-                                    onClick={() => { setShowFilterMenu(false); setShowSortMenu(!showSortMenu) }}
-                                >
-                                    <Shuffle className="w-3 h-3 mr-1" />
-                                    Sıralama
-                                </Button>
-                                <Button
-                                    variant="ghost"
-                                    size="sm"
-                                    className="text-[10px] uppercase tracking-widest h-7 px-2 text-muted-foreground hover:text-foreground"
-                                    onClick={() => { setShowSortMenu(false); setShowFilterMenu(!showFilterMenu) }}
-                                >
-                                    <Filter className="w-3 h-3 mr-1" />
-                                    Filtre
-                                </Button>
-                                <Link href="/olustur">
-                                    <Button size="sm" className="h-7 text-[10px] uppercase tracking-widest px-3 bg-foreground text-background rounded-full">
-                                        <Plus className="w-3 h-3 mr-1" />
-                                        Yeni
-                                    </Button>
-                                </Link>
-                                {/* Popup menus simplified for brevity, assume they work as overlay */}
-                                {(showSortMenu || showFilterMenu) && (
-                                    <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
-                                )}
-                                {showSortMenu && (
-                                    <div className="absolute mt-8 bg-background border rounded-md shadow-lg z-20 py-1 min-w-[120px]">
-                                        {['newest', 'oldest', 'shuffle'].map(o => (
-                                            <button key={o} onClick={() => handleSortChange(o as any)} className="w-full text-left px-4 py-2 text-xs hover:bg-accent capitalize">{o === 'newest' ? 'Yeni' : o === 'oldest' ? 'Eski' : 'Karışık'}</button>
-                                        ))}
-                                    </div>
-                                )}
-                                {showFilterMenu && (
-                                    <div className="absolute mt-8 ml-20 bg-background border rounded-md shadow-lg z-20 py-1 min-w-[120px]">
-                                        {['default', 'dark', 'light', 'soft'].map(f => (
-                                            <button key={f} onClick={() => handleFilterChange(f as any)} className="w-full text-left px-4 py-2 text-xs hover:bg-accent capitalize">{f}</button>
-                                        ))}
-                                    </div>
-                                )}
+                                        <Link2 className="w-3 h-3" />
+                                        {link.label || "Link"}
+                                    </a>
+                                ))}
                             </div>
                         )}
                     </div>
+
+                    {/* Row 4: Actions */}
+                    <div className="flex items-center gap-4 mt-2 pl-1">
+                        {currentUserId && profile.id !== currentUserId && (
+                            <div className="flex items-center gap-3">
+                                <Button
+                                    onClick={handleFollow}
+                                    className="rounded-full uppercase tracking-widest text-xs font-bold h-10 px-8 shadow-sm hover:shadow-md transition-all"
+                                    variant={isFollowing ? "outline" : "default"}
+                                >
+                                    {isFollowing ? "Takip Ediliyor" : "Takip Et"}
+                                </Button>
+                                {/* More Button */}
+                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
+                                    <span className="sr-only">Daha fazla</span>
+                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
+                                </Button>
+                            </div>
+                        )}
+
+                        {isOwnProfile && (
+                            <div className="flex flex-wrap items-center gap-3">
+                                <Button variant="outline" size="sm" onClick={() => router.push('/ayarlar')} className="rounded-full px-6 text-xs uppercase tracking-wider font-medium h-9 border-foreground/20 hover:border-foreground transition-colors">
+                                    Profili Düzenle
+                                </Button>
+                                <Button
+                                    variant="ghost"
+                                    size="icon"
+                                    className="h-9 w-9 rounded-full hover:bg-accent"
+                                    onClick={async () => {
+                                        const shareData = { title: `${profile.username} - VSCO TR`, url: window.location.href }
+                                        try { navigator.share ? await navigator.share(shareData) : await navigator.clipboard.writeText(window.location.href) } catch { }
+                                    }}
+                                >
+                                    <Share2 className="w-4 h-4" />
+                                </Button>
+                            </div>
+                        )}
+                    </div>
+
+                    {/* Follow Counts - Optional placement, putting below actions as small text */}
+                    <div className="flex gap-6 text-sm font-light text-muted-foreground justify-start pl-1 mt-1">
+                        <button onClick={openFollowersModal} className="hover:text-foreground transition-colors">
+                            <strong className="font-medium text-foreground">{followersCount}</strong> takipçi
+                        </button>
+                        <button onClick={openFollowingModal} className="hover:text-foreground transition-colors">
+                            <strong className="font-medium text-foreground">{followingCount}</strong> takip
+                        </button>
+                    </div>
+
+                    {/* Sort/Filter Toolbar (Own Profile) - Kept relative */}
+                    {isOwnProfile && activeTab === "posts" && (
+                        <div className="w-full flex flex-wrap items-center justify-start gap-2 mt-4 pl-1">
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-[10px] uppercase tracking-widest h-7 px-2 text-muted-foreground hover:text-foreground"
+                                onClick={() => { setShowFilterMenu(false); setShowSortMenu(!showSortMenu) }}
+                            >
+                                <Shuffle className="w-3 h-3 mr-1" />
+                                Sıralama
+                            </Button>
+                            <Button
+                                variant="ghost"
+                                size="sm"
+                                className="text-[10px] uppercase tracking-widest h-7 px-2 text-muted-foreground hover:text-foreground"
+                                onClick={() => { setShowSortMenu(false); setShowFilterMenu(!showFilterMenu) }}
+                            >
+                                <Filter className="w-3 h-3 mr-1" />
+                                Filtre
+                            </Button>
+                            <Link href="/olustur">
+                                <Button size="sm" className="h-7 text-[10px] uppercase tracking-widest px-3 bg-foreground text-background rounded-full">
+                                    <Plus className="w-3 h-3 mr-1" />
+                                    Yeni
+                                </Button>
+                            </Link>
+                            {(showSortMenu || showFilterMenu) && (
+                                <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
+                            )}
+                            {showSortMenu && (
+                                <div className="absolute mt-8 bg-background border rounded-md shadow-lg z-20 py-1 min-w-[120px]">
+                                    {['newest', 'oldest', 'shuffle'].map(o => (
+                                        <button key={o} onClick={() => handleSortChange(o as any)} className="w-full text-left px-4 py-2 text-xs hover:bg-accent capitalize">{o === 'newest' ? 'Yeni' : o === 'oldest' ? 'Eski' : 'Karışık'}</button>
+                                    ))}
+                                </div>
+                            )}
+                            {showFilterMenu && (
+                                <div className="absolute mt-8 ml-20 bg-background border rounded-md shadow-lg z-20 py-1 min-w-[120px]">
+                                    {['default', 'dark', 'light', 'soft'].map(f => (
+                                        <button key={f} onClick={() => handleFilterChange(f as any)} className="w-full text-left px-4 py-2 text-xs hover:bg-accent capitalize">{f}</button>
+                                    ))}
+                                </div>
+                            )}
+                        </div>
+                    )}
                 </div>
 
                 <div className="flex gap-8 mb-6 border-b border-border/50">

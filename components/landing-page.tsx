@@ -70,7 +70,7 @@ export function LandingPage() {
         <div className="max-w-6xl mx-auto px-4 h-14 flex items-center justify-between">
           <Link href="/" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR 10</span>
+            <span className="font-semibold tracking-wide">vscotr</span>
           </Link>
           <div className="flex items-center gap-4">
             {user ? (

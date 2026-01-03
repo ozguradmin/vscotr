@@ -33,7 +33,7 @@ export function LandingPage() {
             APPWRITE_CONFIG.COLLECTIONS.POSTS,
             [
               Query.orderDesc("created_at"),
-              Query.limit(20), // Changed from 8 to 20 as per instruction
+              Query.limit(8), // Changed from 20 to 8 as requested
               Query.offset(randomOffset) // Basit randomize
             ]
           )
@@ -45,7 +45,7 @@ export function LandingPage() {
             APPWRITE_CONFIG.COLLECTIONS.POSTS,
             [
               Query.orderDesc("created_at"),
-              Query.limit(20) // Changed from 8 to 20 as per instruction
+              Query.limit(8) // Changed from 20 to 8 as requested
             ]
           )
         }

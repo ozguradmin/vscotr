@@ -11,9 +11,17 @@ interface OptimizeImageOptions {
 
 /**
  * Generate optimized image URL using Appwrite SDK's getFilePreview
- * This ensures proper authentication and URL format
+ * 
+ * NOTE: CURRENTLY DISABLED - Appwrite /preview endpoint returns 404 "bucket not found"
+ * even though the bucket exists and /view endpoint works fine.
+ * This needs investigation with Appwrite support or console settings.
+ * 
+ * To re-enable: Remove the early return below when preview works.
  */
 export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions = {}) {
+    // DISABLED: Appwrite preview returns 404. Return original URL until fixed.
+    return url
+
     if (!url) return url
 
     // Check if it's an Appwrite Storage URL

@@ -220,7 +220,7 @@ export function LandingPage() {
 
             <div className="relative w-full h-full flex items-center justify-center">
               <img
-                src={selectedPost.image_url || "/placeholder.svg"}
+                src={getOptimizedImageUrl(selectedPost.image_url, { width: 1200, output: 'webp' }) || "/placeholder.svg"}
                 alt={selectedPost.caption || ""}
                 className="max-w-full max-h-[85vh] object-contain rounded-sm shadow-2xl"
               />
@@ -231,7 +231,7 @@ export function LandingPage() {
               <Link href={`/${selectedPost.profiles?.username}`} className="flex items-center gap-2 hover:opacity-80">
                 <div className="w-8 h-8 rounded-full overflow-hidden bg-gray-800">
                   <img
-                    src={selectedPost.profiles?.avatar_url || "/placeholder.svg"}
+                    src={getOptimizedImageUrl(selectedPost.profiles?.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                     alt=""
                     className="w-full h-full object-cover"
                   />

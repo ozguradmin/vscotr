@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useEffect, useMemo } from "react"
 import { useRouter } from "next/navigation"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { Query } from "appwrite"
 import { VscoLogo } from "@/components/vsco-logo"
 import { Button } from "@/components/ui/button"
@@ -255,7 +256,7 @@ export default function AdminPage() {
                     <div className="w-10 h-10 rounded-full overflow-hidden bg-muted flex-shrink-0">
                       {user.avatar_url ? (
                         <img
-                          src={user.avatar_url || "/placeholder.svg"}
+                          src={getOptimizedImageUrl(user.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                           alt=""
                           className="w-full h-full object-cover"
                         />
@@ -296,7 +297,7 @@ export default function AdminPage() {
                   <div className="w-20 h-20 rounded-full overflow-hidden bg-muted flex-shrink-0">
                     {selectedUser.avatar_url ? (
                       <img
-                        src={selectedUser.avatar_url || "/placeholder.svg"}
+                        src={getOptimizedImageUrl(selectedUser.avatar_url, { width: 200, output: 'webp' }) || "/placeholder.svg"}
                         alt=""
                         className="w-full h-full object-cover"
                       />

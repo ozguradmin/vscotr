@@ -12,6 +12,7 @@ import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { VscoImage } from "@/components/vsco-image"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -925,7 +926,7 @@ export function ProfileView({
                             <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
                                 {/* Native img for reliability */}
                                 <img
-                                    src={selectedPost.image_url || "/placeholder.svg"}
+                                    src={getOptimizedImageUrl(selectedPost.image_url, { width: 1200, output: 'webp' }) || "/placeholder.svg"}
                                     alt={selectedPost.caption || ""}
                                     className="max-w-full max-h-full object-contain"
                                     style={{ filter: getFilterStyle() }}
@@ -959,7 +960,7 @@ export function ProfileView({
                                         <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
                                             {selectedPost.original_owner.avatar_url ? (
                                                 <img
-                                                    src={selectedPost.original_owner.avatar_url}
+                                                    src={getOptimizedImageUrl(selectedPost.original_owner.avatar_url, { width: 100, output: 'webp' })}
                                                     alt=""
                                                     className="w-full h-full object-cover"
                                                 />
@@ -1099,7 +1100,7 @@ export function ProfileView({
                                         >
                                             <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
                                                 {follower.avatar_url ? (
-                                                    <img src={follower.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                    <img src={getOptimizedImageUrl(follower.avatar_url, { width: 100, output: 'webp' })} alt="" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
                                                         {follower.username[0].toUpperCase()}
@@ -1140,7 +1141,7 @@ export function ProfileView({
                                         >
                                             <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
                                                 {following.avatar_url ? (
-                                                    <img src={following.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                    <img src={getOptimizedImageUrl(following.avatar_url, { width: 100, output: 'webp' })} alt="" className="w-full h-full object-cover" />
                                                 ) : (
                                                     <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
                                                         {following.username[0].toUpperCase()}

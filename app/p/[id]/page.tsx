@@ -4,6 +4,7 @@ import { useEffect, useState } from "react"
 import { useParams, useRouter } from "next/navigation"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { Button } from "@/components/ui/button"
 import { ArrowLeft, Share2, MoreHorizontal, Heart, MessageCircle, Repeat2, Trash2 } from "lucide-react"
 import Link from "next/link"
@@ -107,7 +108,7 @@ export default function PostPage() {
                     <div className="flex items-center justify-between px-4 mb-3">
                         <Link href={`/${post.profiles?.username}`} className="flex items-center gap-3">
                             <div className="w-8 h-8 rounded-full overflow-hidden bg-muted">
-                                {post.profiles?.avatar_url && <img src={post.profiles.avatar_url} className="w-full h-full object-cover" />}
+                                {post.profiles?.avatar_url && <img src={getOptimizedImageUrl(post.profiles.avatar_url, { width: 100, output: 'webp' })} className="w-full h-full object-cover" />}
                             </div>
                             <span className="font-medium text-sm">{post.profiles?.username}</span>
                         </Link>
@@ -116,7 +117,7 @@ export default function PostPage() {
                     {/* Image - Native IMG for reliability */}
                     <div className="w-full bg-muted flex items-center justify-center min-h-[300px]">
                         <img
-                            src={post.image_url}
+                            src={getOptimizedImageUrl(post.image_url, { width: 1200, output: 'webp' })}
                             alt={post.caption || "Post"}
                             className="w-full h-auto object-contain max-h-[70vh]"
                         />

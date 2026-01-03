@@ -15,12 +15,14 @@ interface EditProfileModalProps {
         bio: string | null
         avatar_url: string | null
     }
+    posts?: any[] // Added for Grid Preview
 }
 
-export function EditProfileModal({ isOpen, onClose, currentProfile }: EditProfileModalProps) {
+export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }: EditProfileModalProps) {
     const [displayName, setDisplayName] = useState(currentProfile.display_name || "")
     const [bio, setBio] = useState(currentProfile.bio || "")
     const [loading, setLoading] = useState(false)
+    const [previewPosts, setPreviewPosts] = useState(posts)
 
     const router = useRouter()
 
@@ -100,6 +102,23 @@ export function EditProfileModal({ isOpen, onClose, currentProfile }: EditProfil
                         </button>
                     </div>
                 </form>
+
+                {/* Grid Preview Section (Client Only for now) */}
+                <div className="p-4 border-t border-border bg-muted/20">
+                    <h3 className="text-sm font-medium mb-3">Grid Düzeni (Önizleme)</h3>
+                    <p className="text-xs text-muted-foreground mb-3">Şu anki görsel düzen. Özel sıralama yakında eklenecek.</p>
+                    <div className="grid grid-cols-3 gap-1 max-h-[120px] overflow-y-auto pr-1">
+                        {previewPosts.slice(0, 9).map((post: any) => (
+                            <div key={post.id} className="aspect-square bg-muted relative group overflow-hidden rounded-sm">
+                                {post.image_url ? (
+                                    <img src={post.image_url} className="w-full h-full object-cover" alt="" />
+                                ) : (
+                                    <div className="w-full h-full bg-muted" />
+                                )}
+                            </div>
+                        ))}
+                    </div>
+                </div>
             </div>
         </div>
     )

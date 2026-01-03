@@ -113,19 +113,8 @@ export function ProfileView({
     const [activeTab, setActiveTab] = useState<"posts" | "reposts">("posts")
 
     // Sort & Filter States - Load from profile (database)
-    const [shuffleSeed, setShuffleSeed] = useState<number>(0)
-
-    // Load/Init Shuffle Seed
-    useEffect(() => {
-        const saved = localStorage.getItem('shuffleSeed')
-        if (saved) {
-            setShuffleSeed(parseInt(saved))
-        } else {
-            const newSeed = Date.now()
-            localStorage.setItem('shuffleSeed', newSeed.toString())
-            setShuffleSeed(newSeed)
-        }
-    }, [])
+    // Seed state removed - we want pure random refresh
+    const [refreshTrigger, setRefreshTrigger] = useState(0)
 
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">(() => {
         const saved = profile.grid_sort
@@ -203,11 +192,8 @@ export function ProfileView({
     // Handle Sort Change - close filter menu too
     const handleSortChange = (type: "newest" | "oldest" | "shuffle") => {
         if (type === 'shuffle') {
-            // ALWAYS generate a new seed when clicking Shuffle menu item
-            // This ensures immediate visual feedback of a "new shuffle"
-            const newSeed = Date.now() + Math.floor(Math.random() * 1000)
-            localStorage.setItem('shuffleSeed', newSeed.toString())
-            setShuffleSeed(newSeed)
+            // Force refresh on click
+            setRefreshTrigger(prev => prev + 1)
         }
         setSortOrder(type)
         setShowSortMenu(false)
@@ -265,17 +251,10 @@ export function ProfileView({
                 }))
 
                 if (sortOrder === 'shuffle') {
-                    // ID-Based Robust Shuffle: Hash(Seed + ID) per item -> Deterministic Score
-                    // This ensures that even if DB returns items in different order, the score for item X is always S(X)
-                    // and sort order is preserved.
-                    const scored = formattedPosts.map(p => {
-                        const hash = cyrb53(p.id, shuffleSeed)
-                        const rnd = mulberry32(hash)() // Generate number from hash
-                        return { p, score: rnd }
-                    })
-                    // Sort by score
+                    // Pure Random Shuffle on every load/trigger
+                    // Fisher-Yates or simple random sort
+                    const scored = formattedPosts.map(p => ({ p, score: Math.random() }))
                     scored.sort((a, b) => a.score - b.score)
-                    // Map back
                     formattedPosts = scored.map(s => s.p)
                 }
 
@@ -350,7 +329,7 @@ export function ProfileView({
 
         fetchProfileData()
         fetchProfileData()
-    }, [profile.id, sortOrder, shuffleSeed])
+    }, [profile.id, sortOrder, refreshTrigger])
 
     // Load Post States
     useEffect(() => {
@@ -654,6 +633,7 @@ export function ProfileView({
                 isOpen={editProfileOpen}
                 onClose={() => setEditProfileOpen(false)}
                 currentProfile={profile}
+                posts={currentPosts} // Pass posts for potential grid editing
             />
             <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
@@ -771,7 +751,7 @@ export function ProfileView({
                                 onClick={() => { setShowFilterMenu(false); setShowSortMenu(!showSortMenu) }}
                             >
                                 <Shuffle className="w-3 h-3 mr-1" />
-                                Sıralama
+                                Düzen
                             </Button>
                             <Button
                                 variant="ghost"
@@ -780,7 +760,7 @@ export function ProfileView({
                                 onClick={() => { setShowSortMenu(false); setShowFilterMenu(!showFilterMenu) }}
                             >
                                 <Filter className="w-3 h-3 mr-1" />
-                                Filtre
+                                Ton
                             </Button>
                             <Link href="/olustur">
                                 <Button size="sm" className="h-7 text-[10px] uppercase tracking-widest px-3 bg-foreground text-background rounded-full">

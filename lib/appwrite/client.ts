@@ -1,29 +1,55 @@
-import { Client, Account, Databases, Storage } from "appwrite";
+// Re-export Firebase compatibility layer as Appwrite-compatible API
+// This allows existing code to work with minimal changes
 
-const client = new Client();
+export {
+    databases,
+    storage,
+    ID,
+    Query,
+    APPWRITE_CONFIG
+} from '../firebase/compat';
 
-const ENDPOINT = process.env.NEXT_PUBLIC_APPWRITE_ENDPOINT || "https://fra.cloud.appwrite.io/v1";
-const PROJECT_ID = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID || "";
+// Re-export auth as account for compatibility
+import { auth } from '../firebase/client';
 
-client
-    .setEndpoint(ENDPOINT)
-    .setProject(PROJECT_ID);
+// Wrap Firebase auth to provide Appwrite-like account API
+export const account = {
+    get: async () => {
+        const user = auth.currentUser;
+        if (!user) throw new Error('Not authenticated');
+        return {
+            $id: user.uid,
+            email: user.email,
+            name: user.displayName,
+            emailVerification: user.emailVerified
+        };
+    },
 
-export const account = new Account(client);
-export const databases = new Databases(client);
-export const storage = new Storage(client);
+    create: async (userId: string, email: string, password: string, name?: string) => {
+        // This should be handled by Firebase Auth directly in the registration page
+        throw new Error('Use Firebase Auth createUserWithEmailAndPassword');
+    },
 
-export const APPWRITE_CONFIG = {
-    DATABASE_ID: process.env.NEXT_PUBLIC_APPWRITE_DATABASE_ID || "",
-    BUCKET_ID: "photos", // Hardcoded per migration script
-    COLLECTIONS: {
-        PROFILES: '6957b63100394b3f1a3e',
-        POSTS: '6957b637000a08b4e66d',
-        LIKES: '6957b63f0012313e1f33',
-        REPOSTS: '6957b642003546f4e485',
-        FOLLOWS: '6957b6460033a44fc87f',
-        PROFILE_LINKS: 'profile_links'
+    createEmailPasswordSession: async (email: string, password: string) => {
+        // This should be handled by Firebase Auth directly in the login page
+        throw new Error('Use Firebase Auth signInWithEmailAndPassword');
+    },
+
+    deleteSession: async (sessionId: string) => {
+        const { signOut } = await import('firebase/auth');
+        await signOut(auth);
+    },
+
+    updatePassword: async (newPassword: string, oldPassword: string) => {
+        const { updatePassword, EmailAuthProvider, reauthenticateWithCredential } = await import('firebase/auth');
+        const user = auth.currentUser;
+        if (!user || !user.email) throw new Error('Not authenticated');
+
+        // Re-authenticate before password change
+        const credential = EmailAuthProvider.credential(user.email, oldPassword);
+        await reauthenticateWithCredential(user, credential);
+        await updatePassword(user, newPassword);
     }
 };
 
-export default client;
+export default {};

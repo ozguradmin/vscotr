@@ -38,3 +38,7 @@ next-env.d.ts
 
 # Vercel
 .vercel
+
+# Firebase
+firebase-service-account.json
+*-service-account.json

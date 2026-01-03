@@ -1,0 +1,30 @@
+[
+    {
+        "$id": "695965e8000e8599ab69",
+        "profile_id": "6959629e00356c488c28",
+        "label": null,
+        "url": "https://www.instagram.com/nazlii_oktnn?igsh=cW15dTExcTJ5Mjlr",
+        "order_index": 0
+    },
+    {
+        "$id": "6958c134000e3a0ce3c7",
+        "profile_id": "6958c07c00379c80946a",
+        "label": "İnsta",
+        "url": "https://www.instagram.com/beyazt.cskn?igsh=N2l1eGtocTh1d20w",
+        "order_index": 0
+    },
+    {
+        "$id": "6958bb5b0017d86ed2aa",
+        "profile_id": "6958b8d300236344d7d9",
+        "label": "İnsta",
+        "url": "https://www.instagram.com/yunuskrcl?igsh=MWdlemwyN2IzbWdtNQ==",
+        "order_index": 0
+    },
+    {
+        "$id": "695874c2002396d45351",
+        "profile_id": "69580b6d000a9768746d",
+        "label": "Portfolyom",
+        "url": "http://ozgurguler.netlify.app/",
+        "order_index": 0
+    }
+]

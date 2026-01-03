@@ -8,8 +8,9 @@ import { VscoLogo } from "@/components/vsco-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { account, databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { ID, Query } from "appwrite"
+import { auth, db, COLLECTIONS } from "@/lib/firebase/client"
+import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { doc, setDoc, getDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore"
 import { useAuth } from "@/lib/auth-context"
 
 export default function KayitPage() {
@@ -41,87 +42,62 @@ export default function KayitPage() {
       return
     }
 
-    // 0. AGGRESSIVE LOGIN CLEAR
-    try {
-      await logout() // Clear context state
-    } catch (e) { console.log('Logout context error ignored', e) }
-
-    try {
-      await account.deleteSession('current') // Force SDK clear
-    } catch (e) { console.log('SDK deleteSession error ignored', e) }
-
-    // Tiny delay to ensure propagation
-    await new Promise(resolve => setTimeout(resolve, 100))
-
     try {
       // 1. Check Username Uniqueness
-      const existingUsers = await databases.listDocuments(
-        APPWRITE_CONFIG.DATABASE_ID,
-        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-        [Query.equal("username", username.toLowerCase())]
-      )
+      const profilesRef = collection(db, COLLECTIONS.PROFILES)
+      const q = query(profilesRef, where("username", "==", username.toLowerCase()))
+      const existingUsers = await getDocs(q)
 
-      if (existingUsers.documents.length > 0) {
+      if (!existingUsers.empty) {
         setError("Bu kullanıcı adı zaten alınmış")
         setIsLoading(false)
         return
       }
 
-      // 2. Create Account
-      const newUser = await account.create(ID.unique(), email, password, username)
+      // 2. Create Account in Firebase Auth
+      const userCredential = await createUserWithEmailAndPassword(auth, email, password)
+      const newUser = userCredential.user
 
-      // 3. Create Session (Login)
-      try {
-        await account.createEmailPasswordSession(email, password)
-      } catch (sessionErr: any) {
-        console.error("Session create error", sessionErr)
-        // If somehow session active error persists, try one more delete and retry
-        if (sessionErr?.message?.includes("active")) {
-          await account.deleteSession('current')
-          await account.createEmailPasswordSession(email, password)
-        } else {
-          throw sessionErr
-        }
-      }
+      // 3. Update display name
+      await updateProfile(newUser, { displayName: username })
 
-      // 4. Create Profile Document
-      await databases.createDocument(
-        APPWRITE_CONFIG.DATABASE_ID,
-        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-        newUser.$id,
-        {
-          username: username.toLowerCase(),
-          display_name: username,
-          avatar_url: null,
-          bio: null
-        }
-      )
+      // 4. Create Profile Document in Firestore
+      await setDoc(doc(db, COLLECTIONS.PROFILES, newUser.uid), {
+        username: username.toLowerCase(),
+        display_name: username,
+        avatar_url: null,
+        bio: null,
+        member_badge: null,
+        location: null,
+        grid_sort: null,
+        grid_filter: null,
+        created_at: new Date(),
+        updated_at: new Date()
+      })
 
-      // 5. Refresh Context & Redirect
-      await refreshUser()
+      // 5. Refresh Context
       await refreshUser()
 
       // Auto-follow logic
       if (followId) {
         try {
-          await databases.createDocument(
-            APPWRITE_CONFIG.DATABASE_ID,
-            APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
-            ID.unique(),
-            { follower_id: newUser.$id, following_id: followId }
-          )
+          await addDoc(collection(db, COLLECTIONS.FOLLOWS), {
+            follower_id: newUser.uid,
+            following_id: followId,
+            created_at: new Date()
+          })
+
           // Fetch target profile to redirect
-          const targetProfile = await databases.getDocument(
-            APPWRITE_CONFIG.DATABASE_ID,
-            APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-            followId
-          )
-          if (targetProfile && targetProfile.username) {
-            router.push(`/${targetProfile.username}`)
-            return
+          const targetProfileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, followId))
+          if (targetProfileDoc.exists()) {
+            const targetProfile = targetProfileDoc.data()
+            if (targetProfile.username) {
+              router.push(`/${targetProfile.username}`)
+              return
+            }
           }
         } catch (e) {
-          console.error("Auto follow check error", e)
+          console.error("Auto follow error", e)
         }
       }
 
@@ -129,10 +105,12 @@ export default function KayitPage() {
 
     } catch (error: any) {
       console.error("[Register] Signup error:", error)
-      if (error?.message?.includes("Password") && error?.message?.includes("short")) {
-        setError("Şifre en az 8 karakter olmalıdır")
-      } else if (error?.type === 'user_already_exists') {
+      if (error?.code === "auth/weak-password") {
+        setError("Şifre en az 6 karakter olmalıdır")
+      } else if (error?.code === "auth/email-already-in-use") {
         setError("Bu e-posta adresi ile zaten bir hesap mevcut")
+      } else if (error?.code === "auth/invalid-email") {
+        setError("Geçersiz e-posta adresi")
       } else {
         setError(error.message || "Bir hata oluştu")
       }

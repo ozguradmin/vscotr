@@ -8,9 +8,10 @@ import { VscoLogo } from "@/components/vsco-logo"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { account, databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { auth, db, COLLECTIONS } from "@/lib/firebase/client"
+import { signInWithEmailAndPassword } from "firebase/auth"
+import { doc, getDoc, setDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore"
 import { useAuth } from "@/lib/auth-context"
-import { Query, ID } from "appwrite"
 import { useSearchParams } from "next/navigation"
 
 export default function GirisPage() {
@@ -29,49 +30,45 @@ export default function GirisPage() {
     setError(null)
 
     try {
-      // 1. Create Session
-      await account.createEmailPasswordSession(email, password)
+      // 1. Sign in with Firebase
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
 
       // 2. Refresh Context
       await refreshUser()
 
-      // 3. Get User ID to check profile
-      const user = await account.get()
-
-      // 4. Check Profile
-      const profile = await databases.getDocument(
-        APPWRITE_CONFIG.DATABASE_ID,
-        APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-        user.$id
-      ).catch(() => null)
+      // 3. Check Profile
+      const profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, user.uid))
+      const profile = profileDoc.exists() ? profileDoc.data() : null
 
       if (profile && profile.username) {
         // Auto-follow logic
-        if (followId && followId !== user.$id) {
+        if (followId && followId !== user.uid) {
           try {
-            // Check if already following (optional, redundant but safe)
-            const check = await databases.listDocuments(
-              APPWRITE_CONFIG.DATABASE_ID,
-              APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
-              [Query.equal('follower_id', user.$id), Query.equal('following_id', followId)]
+            // Check if already following
+            const followsRef = collection(db, COLLECTIONS.FOLLOWS)
+            const q = query(followsRef,
+              where('follower_id', '==', user.uid),
+              where('following_id', '==', followId)
             )
-            if (check.total === 0) {
-              await databases.createDocument(
-                APPWRITE_CONFIG.DATABASE_ID,
-                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
-                ID.unique(),
-                { follower_id: user.$id, following_id: followId }
-              )
+            const checkSnapshot = await getDocs(q)
+
+            if (checkSnapshot.empty) {
+              await addDoc(collection(db, COLLECTIONS.FOLLOWS), {
+                follower_id: user.uid,
+                following_id: followId,
+                created_at: new Date()
+              })
             }
+
             // Fetch target profile to redirect
-            const targetProfile = await databases.getDocument(
-              APPWRITE_CONFIG.DATABASE_ID,
-              APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-              followId
-            )
-            if (targetProfile && targetProfile.username) {
-              router.push(`/${targetProfile.username}`)
-              return
+            const targetProfileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, followId))
+            if (targetProfileDoc.exists()) {
+              const targetProfile = targetProfileDoc.data()
+              if (targetProfile.username) {
+                router.push(`/${targetProfile.username}`)
+                return
+              }
             }
           } catch (e) {
             console.error("Auto follow error", e)
@@ -83,10 +80,12 @@ export default function GirisPage() {
       }
     } catch (error: any) {
       console.error("Login error:", error)
-      if (error?.message?.includes("Invalid credentials")) {
+      if (error?.code === "auth/invalid-credential" || error?.code === "auth/wrong-password") {
         setError("Geçersiz e-posta veya şifre")
-      } else if (error?.type === "user_blocked") {
-        setError("Hesabınız engellenmiş")
+      } else if (error?.code === "auth/user-not-found") {
+        setError("Bu e-posta ile kayıtlı hesap bulunamadı")
+      } else if (error?.code === "auth/too-many-requests") {
+        setError("Çok fazla deneme. Lütfen daha sonra tekrar deneyin.")
       } else {
         setError("Giriş yapılamadı: " + (error.message || "Bilinmeyen hata"))
       }

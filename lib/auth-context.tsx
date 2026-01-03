@@ -1,72 +1,85 @@
 "use client"
 
 import React, { createContext, useContext, useEffect, useState } from "react"
-import { account } from "@/lib/appwrite/client"
-import { Models } from "appwrite"
+import { auth, db, COLLECTIONS } from "@/lib/firebase/client"
+import { onAuthStateChanged, signOut, User } from "firebase/auth"
+import { doc, getDoc } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 
+interface Profile {
+    id: string
+    username: string
+    display_name: string | null
+    bio: string | null
+    avatar_url: string | null
+    member_badge: string | null
+    location: string | null
+    grid_sort: string | null
+    grid_filter: string | null
+}
+
 interface AuthContextType {
-    user: Models.User<Models.Preferences> | null
-    currentProfile: any | null // Add profile data
+    user: User | null
+    currentProfile: Profile | null
     loading: boolean
-    login: (user: Models.User<Models.Preferences>) => void
+    login: (user: User) => void
     logout: () => Promise<void>
     refreshUser: () => Promise<void>
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { Query } from "appwrite"
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<Models.User<Models.Preferences> | null>(null)
-    const [currentProfile, setCurrentProfile] = useState<any | null>(null)
+    const [user, setUser] = useState<User | null>(null)
+    const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
     const [loading, setLoading] = useState(true)
-    const router = useRouter() // Initialized useRouter
+    const router = useRouter()
 
-    const checkUser = async () => {
+    const fetchProfile = async (uid: string) => {
         try {
-            const session = await account.get()
-            setUser(session)
-
-            // Fetch profile
-
-            try {
-                const profile = await databases.getDocument(
-                    APPWRITE_CONFIG.DATABASE_ID,
-                    APPWRITE_CONFIG.COLLECTIONS.PROFILES,
-                    session.$id
-                )
-                setCurrentProfile(profile)
-            } catch {
+            const profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, uid))
+            if (profileDoc.exists()) {
+                setCurrentProfile({
+                    id: profileDoc.id,
+                    ...profileDoc.data()
+                } as Profile)
+            } else {
                 setCurrentProfile(null)
             }
         } catch (error) {
-            setUser(null)
+            console.error("Error fetching profile:", error)
             setCurrentProfile(null)
-        } finally {
-            setLoading(false)
         }
     }
 
-    // refreshUser is just an alias for checkUser to be exposed
     const refreshUser = async () => {
-        await checkUser();
+        if (auth.currentUser) {
+            await fetchProfile(auth.currentUser.uid)
+        }
     }
 
     useEffect(() => {
-        checkUser()
+        const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
+            setUser(firebaseUser)
+            if (firebaseUser) {
+                await fetchProfile(firebaseUser.uid)
+            } else {
+                setCurrentProfile(null)
+            }
+            setLoading(false)
+        })
+
+        return () => unsubscribe()
     }, [])
 
-    const login = (user: Models.User<Models.Preferences>) => {
+    const login = (user: User) => {
         setUser(user)
-        checkUser()
+        fetchProfile(user.uid)
     }
 
     const logout = async () => {
         try {
-            await account.deleteSession("current")
+            await signOut(auth)
             setUser(null)
             setCurrentProfile(null)
             router.push("/giris")
@@ -74,8 +87,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             console.error("Logout failed", error)
         }
     }
-
-
 
     return (
         <AuthContext.Provider value={{ user, currentProfile, loading, login, logout, refreshUser }}>

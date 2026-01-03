@@ -1,0 +1,52 @@
+[
+    {
+        "$id": "695982fd001d7025b86c",
+        "follower_id": "695982fb0020f020c384",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "69596ff3002f6b34ff64",
+        "follower_id": "69596ff20004ab58928f",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "695966b200396be03fb8",
+        "follower_id": "69580b6d000a9768746d",
+        "following_id": "6959629e00356c488c28"
+    },
+    {
+        "$id": "69596534000f10c3a339",
+        "follower_id": "6959629e00356c488c28",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "6958dd14001a24153881",
+        "follower_id": "6958dcef0017781b4b6f",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "6958ba38001c960b195a",
+        "follower_id": "6958b8d300236344d7d9",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "695896ba00208fec5452",
+        "follower_id": "6958967f001c858f64db",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "69586a34001293213539",
+        "follower_id": "69586a320032833677a1",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "695847e7003920f4c020",
+        "follower_id": "69580d2200073223a2a3",
+        "following_id": "69580b6d000a9768746d"
+    },
+    {
+        "$id": "695843ab003368de2aaf",
+        "follower_id": "69584394001cca76d836",
+        "following_id": "69580b6d000a9768746d"
+    }
+]

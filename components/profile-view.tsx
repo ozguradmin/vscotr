@@ -659,7 +659,7 @@ export function ProfileView({
             <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
             <main className="max-w-2xl mx-auto px-4 py-8 md:py-12">
-                <div className="flex flex-col gap-3 md:gap-4 mb-12">
+                <div className="flex flex-col gap-3 md:gap-4 mb-4 md:mb-6">
                     {/* Row 1: Header (Avatar + Name) */}
                     <div className="flex items-center gap-4 md:gap-5">
                         <div className="flex-shrink-0">
@@ -678,12 +678,12 @@ export function ProfileView({
                             </div>
                         </div>
                         <div className="flex flex-col items-start gap-1">
-                            <h1 className="text-xl md:text-2xl font-bold tracking-tight">{profile.username}</h1>
-                            {profile.member_badge && (
-                                <span className="bg-foreground text-background text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-widest font-bold">
-                                    {profile.member_badge}
+                            <div className="flex items-center gap-3">
+                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{profile.username}</h1>
+                                <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-md uppercase tracking-wider font-bold shadow-sm select-none">
+                                    {profile.member_badge || "MEMBER"}
                                 </span>
-                            )}
+                            </div>
                         </div>
                     </div>
 
@@ -710,7 +710,7 @@ export function ProfileView({
                                         href={link.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs md:text-sm font-medium hover:text-foreground transition-colors flex items-center gap-1"
+                                        className="text-xs md:text-sm font-medium hover:text-foreground transition-colors flex items-center gap-1 underline underline-offset-4 decoration-muted-foreground/40 hover:decoration-foreground"
                                     >
                                         <Link2 className="w-3 h-3" />
                                         {link.label || "Link"}

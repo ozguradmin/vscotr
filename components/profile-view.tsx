@@ -773,32 +773,32 @@ export function ProfileView({
                                 <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
                             )}
                             {showSortMenu && (
-                                <div className="absolute top-10 left-0 bg-background/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] z-50 p-1.5 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="flex flex-col gap-0.5">
+                                <div className="absolute top-10 left-0 bg-background/90 backdrop-blur-2xl border border-white/20 rounded-xl shadow-2xl z-50 p-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex flex-col gap-1">
                                         {[
                                             { id: 'newest', label: 'En Yeni', desc: 'Tarihe göre yeniden eskiye' },
                                             { id: 'oldest', label: 'En Eski', desc: 'Tarihe göre eskiden yeniye' },
-                                            { id: 'shuffle', label: 'Karışık', desc: 'Rastgele sürpriz düzen' },
+                                            { id: 'shuffle', label: 'Karışık', desc: 'Sürpriz bir düzen' },
                                             { id: 'manual', label: 'Özel', desc: 'Senin belirlediğin sıra' },
                                         ].map((o) => (
                                             <button
                                                 key={o.id}
                                                 onClick={() => handleSortChange(o.id as any)}
-                                                className={`flex flex-col items-start px-3 py-2.5 rounded-xl transition-all ${sortOrder === o.id ? "bg-white/10 text-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
+                                                className={`text-left px-3 py-2 rounded-lg transition-colors ${sortOrder === o.id ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"}`}
                                             >
-                                                <span className="text-sm font-semibold tracking-wide flex items-center gap-2">
+                                                <div className="font-medium text-sm flex items-center gap-2">
                                                     {o.label}
-                                                    {sortOrder === o.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                                </span>
-                                                <span className="text-[10px] opacity-60 font-medium tracking-wider uppercase">{o.desc}</span>
+                                                    {sortOrder === o.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground opacity-80">{o.desc}</div>
                                             </button>
                                         ))}
                                     </div>
                                 </div>
                             )}
                             {showFilterMenu && (
-                                <div className="absolute top-10 left-0 bg-background/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] z-50 p-1.5 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="flex flex-col gap-0.5">
+                                <div className="absolute top-10 left-0 bg-background/90 backdrop-blur-2xl border border-white/20 rounded-xl shadow-2xl z-50 p-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex flex-col gap-1">
                                         {[
                                             { id: 'default', label: 'Standart', desc: 'Orijinal renkler' },
                                             { id: 'dark', label: 'Karanlık', desc: 'Sinematik ve koyu' },
@@ -808,13 +808,13 @@ export function ProfileView({
                                             <button
                                                 key={f.id}
                                                 onClick={() => handleFilterChange(f.id as any)}
-                                                className={`flex flex-col items-start px-3 py-2.5 rounded-xl transition-all ${filterType === f.id ? "bg-white/10 text-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
+                                                className={`text-left px-3 py-2 rounded-lg transition-colors ${filterType === f.id ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"}`}
                                             >
-                                                <span className="text-sm font-semibold tracking-wide flex items-center gap-2">
+                                                <div className="font-medium text-sm flex items-center gap-2">
                                                     {f.label}
-                                                    {filterType === f.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
-                                                </span>
-                                                <span className="text-[10px] opacity-60 font-medium tracking-wider uppercase">{f.desc}</span>
+                                                    {filterType === f.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                </div>
+                                                <div className="text-[10px] text-muted-foreground opacity-80">{f.desc}</div>
                                             </button>
                                         ))}
                                     </div>

@@ -15,7 +15,7 @@ export function ClientLayout({ children }: { children: React.ReactNode }) {
 
     const showTabBar = user && !isAuthPage
 
-    const username = currentProfile?.username || user?.name; // Define username once
+    const username = currentProfile?.username || user?.name // Prefer profile username for correct links
 
     return (
         <div className={user ? "pb-16 md:pb-0" : ""}>

@@ -15,6 +15,7 @@ export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: 
   const router = useRouter()
   const { logout, currentProfile } = useAuth()
   const displayUsername = currentProfile?.username || currentUsername
+  // Ensure we use the most up-to-date username from context if available
 
   const handleLogout = async () => {
     await logout()

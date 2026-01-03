@@ -251,7 +251,7 @@ export function CreateView({ userId, username }: CreateViewProps) {
       )
 
       // Fix Redirect to use current username
-      const targetUsername = currentProfile?.username || user.name
+      const targetUsername = currentProfile?.username || user?.name
       router.push(`/${targetUsername}`)
       router.refresh()
     } catch (error) {
@@ -268,7 +268,7 @@ export function CreateView({ userId, username }: CreateViewProps) {
         <div className="flex items-center justify-between h-14 px-4 max-w-6xl mx-auto">
           <Link href="/akis" className="flex items-center gap-2">
             <VscoLogo className="w-8 h-8" />
-            <span className="font-semibold">VSCO TR</span>
+            <span className="font-semibold tracking-wide">vscotr</span>
           </Link>
           <div className="flex items-center gap-1">
             {image && (

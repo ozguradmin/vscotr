@@ -3,6 +3,7 @@
 import { useState } from "react"
 import { X, Loader2 } from "lucide-react"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 
@@ -114,7 +115,7 @@ export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }
                         {previewPosts.slice(0, 9).map((post: any) => (
                             <div key={post.id} className="aspect-square bg-muted relative group overflow-hidden rounded-sm">
                                 {post.image_url ? (
-                                    <img src={post.image_url} className="w-full h-full object-cover" alt="" />
+                                    <img src={getOptimizedImageUrl(post.image_url, { width: 200, output: 'webp' })} className="w-full h-full object-cover" alt="" />
                                 ) : (
                                     <div className="w-full h-full bg-muted" />
                                 )}

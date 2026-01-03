@@ -866,6 +866,7 @@ export function ProfileView({
                                     src={post.image_url || "/placeholder.svg"}
                                     alt={post.caption || ""}
                                     aspectRatio={post.aspect_ratio || 1}
+                                    width={400} // Optimize for grid (3 columns)
                                     className="w-full h-full"
                                 />
                             </div>

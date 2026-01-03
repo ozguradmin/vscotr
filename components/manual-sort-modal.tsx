@@ -9,6 +9,7 @@ import { Button } from "@/components/ui/button"
 import { X, Save, RotateCcw, Loader2 } from "lucide-react"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { VscoImage } from "@/components/vsco-image"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 
 interface ManualSortModalProps {
     isOpen: boolean
@@ -28,7 +29,11 @@ function SortableItem({ id, post }: { id: string, post: any }) {
     return (
         <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="aspect-square relative group bg-muted overflow-hidden touch-none cursor-move select-none">
             {post.image_url ? (
-                <img src={post.image_url} alt="" className="w-full h-full object-cover pointer-events-none select-none" />
+                <img
+                    src={getOptimizedImageUrl(post.image_url, { width: 300, output: 'webp' })}
+                    alt=""
+                    className="w-full h-full object-cover pointer-events-none select-none"
+                />
             ) : (
                 <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs">?</div>
             )}
@@ -126,7 +131,7 @@ export function ManualSortModal({ isOpen, onClose, posts, onSaveSuccess }: Manua
                         <DragOverlay>
                             {activeId ? (
                                 <div className="aspect-square relative overflow-hidden shadow-2xl opacity-90 scale-105 z-50 ring-2 ring-primary">
-                                    <img src={items.find(i => i.id === activeId)?.image_url} className="w-full h-full object-cover" />
+                                    <img src={getOptimizedImageUrl(items.find(i => i.id === activeId)?.image_url, { width: 300, output: 'webp' })} className="w-full h-full object-cover" />
                                 </div>
                             ) : null}
                         </DragOverlay>

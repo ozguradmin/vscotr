@@ -1,8 +1,9 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useMemo } from "react"
 
 import { cn } from "@/lib/utils"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 
 interface VscoImageProps {
     src: string
@@ -15,6 +16,7 @@ interface VscoImageProps {
     objectFit?: "cover" | "contain"
     quality?: number
     priority?: boolean
+    optimize?: boolean
 }
 
 export function VscoImage({
@@ -26,12 +28,32 @@ export function VscoImage({
     height,
     layout = "fill",
     objectFit = "cover",
-    quality = 75,
+    quality = 80,
     priority = false,
+    optimize = true,
 }: VscoImageProps) {
     const [isLoading, setIsLoading] = useState(true)
     const [error, setError] = useState(false)
     const imgRef = useRef<HTMLImageElement>(null)
+
+    // Calculate optimized URL
+    const optimizedSrc = useMemo(() => {
+        if (!optimize || error) return src
+
+        // Determine target dimensions
+        // If width is explicitly provided, use it.
+        // If layout is fill, we default to a reasonable high-res standard (e.g. 800px) 
+        // to avoid fetching 4K images but still look good on mobile/desktop.
+        // For specific small thumbnails, caller should pass width prop.
+        const targetWidth = width || 800
+
+        return getOptimizedImageUrl(src, {
+            width: targetWidth,
+            height: height,
+            quality: quality,
+            output: "webp"
+        })
+    }, [src, width, height, quality, optimize, error])
 
     // Aspect ratio style calculation
     const style = aspectRatio ? { aspectRatio } : undefined
@@ -69,7 +91,7 @@ export function VscoImage({
 
             <img
                 ref={imgRef}
-                src={error ? "/placeholder.svg" : src}
+                src={error ? "/placeholder.svg" : optimizedSrc}
                 alt={alt}
                 className={cn(
                     "duration-500 ease-in-out",

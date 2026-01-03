@@ -584,6 +584,7 @@ export function SettingsView({
                       src={post.image_url || "/placeholder.svg"}
                       alt=""
                       className="w-20 h-20 rounded flex-shrink-0 transform-none"
+                      width={150}
                     />
                     <div className="flex-1 min-w-0 space-y-2">
                       <Input

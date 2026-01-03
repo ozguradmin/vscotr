@@ -258,6 +258,7 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
                   alt={post.caption || ""}
                   aspectRatio={post.aspect_ratio || 1}
                   className="w-full h-full"
+                  width={800} // Optimize for feed width
                 />
 
                 <div className="px-4 pt-3 pb-4 md:pb-0">
@@ -269,6 +270,7 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
                             src={post.profiles.avatar_url || "/placeholder.svg"}
                             alt=""
                             className="w-full h-full"
+                            width={100} // Optimize avatar
                           />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">

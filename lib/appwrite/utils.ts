@@ -18,19 +18,28 @@ export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions 
 
     try {
         const urlObj = new URL(url)
+        const pathname = urlObj.pathname
 
-        // Switch from 'view' to 'preview' for transformations
-        if (urlObj.pathname.endsWith('/view')) {
-            urlObj.pathname = urlObj.pathname.replace('/view', '/preview')
+        // Handle different URL formats:
+        // Format 1: /storage/buckets/{bucketId}/files/{fileId}/view
+        // Format 2: /storage/buckets/{bucketId}/files/{fileId} (no view suffix)
+        // Target:   /storage/buckets/{bucketId}/files/{fileId}/preview
+
+        if (pathname.endsWith('/view')) {
+            urlObj.pathname = pathname.replace('/view', '/preview')
+        } else if (pathname.endsWith('/preview')) {
+            // Already preview, do nothing
+        } else {
+            // No /view or /preview suffix - append /preview
+            urlObj.pathname = pathname + '/preview'
         }
 
         // Add optimization params
         if (options.width) urlObj.searchParams.set('width', options.width.toString())
         if (options.height) urlObj.searchParams.set('height', options.height.toString())
-        if (options.quality) urlObj.searchParams.set('quality', (options.quality || 80).toString())
+        urlObj.searchParams.set('quality', (options.quality || 80).toString())
         if (options.gravity) urlObj.searchParams.set('gravity', options.gravity)
-        if (options.output) urlObj.searchParams.set('output', options.output)
-        else urlObj.searchParams.set('output', 'webp')
+        urlObj.searchParams.set('output', options.output || 'webp')
 
         // Ensure project ID is present
         const currentProject = urlObj.searchParams.get('project')
@@ -47,10 +56,10 @@ export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions 
 
         const result = urlObj.toString()
 
-        // DEBUG: Log to see what URL is being generated (remove after fix)
-        if (typeof window !== 'undefined') {
-            console.log('[ImageOptimization] Original:', url.substring(0, 80) + '...')
-            console.log('[ImageOptimization] Optimized:', result.substring(0, 80) + '...')
+        // DEBUG: Show full path difference
+        if (typeof window !== 'undefined' && url !== result) {
+            console.log('[ImageOpt] Path:', pathname, '->', urlObj.pathname)
+            console.log('[ImageOpt] Params:', urlObj.search)
         }
 
         return result

@@ -1,0 +1,23 @@
+[
+    {
+        "AllowedOrigins": [
+            "http://localhost:3000",
+            "https://vscotr.vercel.app",
+            "https://*.vercel.app"
+        ],
+        "AllowedMethods": [
+            "PUT",
+            "POST",
+            "GET",
+            "HEAD",
+            "DELETE"
+        ],
+        "AllowedHeaders": [
+            "*"
+        ],
+        "ExposeHeaders": [
+            "ETag"
+        ],
+        "MaxAgeSeconds": 3600
+    }
+]

@@ -22,11 +22,34 @@ export function LandingPage() {
   useEffect(() => {
     const loadFeaturedPosts = async () => {
       try {
-        const postsRes = await databases.listDocuments(
-          APPWRITE_CONFIG.DATABASE_ID,
-          APPWRITE_CONFIG.COLLECTIONS.POSTS,
-          [Query.orderDesc("created_at"), Query.limit(8)]
-        )
+        // Randomize offset to get different images each time (simple customization)
+        // Total posts estimation or try/catch approach
+        const randomOffset = Math.floor(Math.random() * 50)
+
+        let postsRes;
+        try {
+          postsRes = await databases.listDocuments(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.POSTS,
+            [
+              Query.orderDesc("created_at"),
+              Query.limit(20), // Changed from 8 to 20 as per instruction
+              Query.offset(randomOffset) // Basit randomize
+            ]
+          )
+        } catch (error) {
+          // Fallback if offset is out of bounds or other error
+          console.warn("Error fetching posts with offset, trying without offset:", error);
+          postsRes = await databases.listDocuments(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.POSTS,
+            [
+              Query.orderDesc("created_at"),
+              Query.limit(20) // Changed from 8 to 20 as per instruction
+            ]
+          )
+        }
+
 
         if (postsRes.documents.length > 0) {
           // Unique users

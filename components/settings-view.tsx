@@ -101,15 +101,26 @@ export function SettingsView({
     if (!file) return
 
     try {
-      // Upload to Appwrite Storage
-      const fileUpload = await storage.createFile(
-        APPWRITE_CONFIG.BUCKET_ID,
-        ID.unique(),
-        file
-      )
-      const avatarUrl = storage.getFileView(APPWRITE_CONFIG.BUCKET_ID, fileUpload.$id) // .href check needed if string return? Yes, string.
+      const presignRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: file.name,
+          contentType: file.type || 'image/jpeg'
+        })
+      });
+      if (!presignRes.ok) throw new Error('Avatar upload init failed');
+      const { uploadUrl, publicUrl } = await presignRes.json();
 
-      setFormData({ ...formData, avatar_url: avatarUrl as any as string }) // Type casting if needed or just string
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: file,
+        headers: { 'Content-Type': file.type || 'image/jpeg' }
+      });
+      if (!uploadRes.ok) throw new Error('Avatar upload failed');
+      const avatarUrl = publicUrl;
+
+      setFormData({ ...formData, avatar_url: avatarUrl })
     } catch (error) {
       console.error("Avatar upload error", error)
       showToast("Avatar yüklenemedi")

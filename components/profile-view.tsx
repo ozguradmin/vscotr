@@ -668,7 +668,7 @@ export function ProfileView({
 
                     {/* Row 2: Bio (Aligned Left) */}
                     {profile.bio && (
-                        <p className="text-sm md:text-base font-light leading-relaxed max-w-lg text-foreground/90 pl-1">
+                        <p className="text-[13px] md:text-[15px] font-normal leading-relaxed max-w-lg text-foreground pl-1">
                             {profile.bio}
                         </p>
                     )}

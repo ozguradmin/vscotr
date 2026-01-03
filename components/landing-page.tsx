@@ -8,6 +8,7 @@ import { Query } from "appwrite"
 import { useAuth } from "@/lib/auth-context"
 
 import { VscoImage } from "@/components/vsco-image"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
 import { X, Heart, RotateCcw, Trash2 } from "lucide-react"
 
@@ -151,6 +152,7 @@ export function LandingPage() {
                         alt={post.caption || "Community photo"}
                         aspectRatio={post.aspect_ratio || 1}
                         className="w-full"
+                        width={400} // Optimize for landing grid
                       />
                       <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity" />
                     </div>
@@ -162,7 +164,7 @@ export function LandingPage() {
                     >
                       <div className="w-5 h-5 rounded-full overflow-hidden bg-muted">
                         <img
-                          src={post.profiles?.avatar_url || "/placeholder.svg"}
+                          src={getOptimizedImageUrl(post.profiles?.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                           alt={post.profiles?.username}
                           className="w-full h-full object-cover"
                         />

@@ -9,6 +9,7 @@ import { MobileTabBar } from "@/components/mobile-tab-bar"
 import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { VscoImage } from "@/components/vsco-image"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
 import { ID, Query } from "appwrite"
@@ -337,6 +338,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                     alt={post.caption || ""}
                                     aspectRatio={post.aspect_ratio || 1}
                                     className="w-full h-full"
+                                    width={400} // Optimize for grid
                                 />
                                 {/* Liked/Reposted indicators */}
                                 {postStates[post.id]?.liked && (
@@ -401,7 +403,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                         <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
                             {/* Native img tag for reliable rendering */}
                             <img
-                                src={selectedPost.image_url || "/placeholder.svg"}
+                                src={getOptimizedImageUrl(selectedPost.image_url, { width: 1200, output: 'webp' }) || "/placeholder.svg"}
                                 alt={selectedPost.caption || ""}
                                 className="max-w-full max-h-full object-contain"
                             />

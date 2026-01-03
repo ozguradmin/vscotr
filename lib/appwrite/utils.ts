@@ -1,7 +1,12 @@
 import { APPWRITE_CONFIG } from "./client"
 
-// Cloudflare Worker URL
-const CDN_URL = "https://vscotr-cdn.ozgurglr256.workers.dev";
+// Using wsrv.nl (Open source image proxy)
+// Benefits:
+// 1. Resizes images on the fly (fixes LCP/speed issue)
+// 2. Converts to WebP (fixes size issue)
+// 3. Caches images (fixes Appwrite bandwidth issue)
+// 4. Free and requires no API key
+const WESERV_BASE_URL = "https://wsrv.nl";
 
 interface OptimizeImageOptions {
     width?: number
@@ -12,9 +17,8 @@ interface OptimizeImageOptions {
 }
 
 /**
- * Generate optimized image URL using Cloudflare Worker CDN
- * This routes requests through Cloudflare caches to save Appwrite bandwidth.
- * The Worker proxies the request to Appwrite's /view endpoint and caches the result.
+ * Generate optimized image URL using wsrv.nl
+ * This services fetches the original image from Appwrite, resizes/optimizes it, and serves it from cache.
  */
 export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions = {}) {
     if (!url) return url
@@ -25,34 +29,55 @@ export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions 
     }
 
     try {
-        // Extract fileId from URL
-        // URL format: https://.../files/{fileId}/...
+        // 1. Construct the cleaning Appwrite Source URL (Original View URL)
+        // We need to ensure it uses /view and has Project ID
         const urlObj = new URL(url)
-        const pathParts = urlObj.pathname.split('/')
 
-        const filesIndex = pathParts.indexOf('files')
-        if (filesIndex === -1 || filesIndex + 1 >= pathParts.length) {
-            return url
-        }
-        const fileId = pathParts[filesIndex + 1]
-
-        // Construct CDN URL: https://cdn-url/image/{fileId}
-        const cdnUrl = new URL(`${CDN_URL}/image/${fileId}`)
-
-        // Add params
-        if (options.width) cdnUrl.searchParams.set('width', options.width.toString())
-        if (options.height) cdnUrl.searchParams.set('height', options.height.toString())
-        cdnUrl.searchParams.set('quality', (options.quality || 80).toString())
-
-        // DEBUG
-        if (typeof window !== 'undefined') {
-            // console.log('[ImageOpt] CDN URL:', cdnUrl.toString())
+        // Ensure /view endpoint
+        if (urlObj.pathname.endsWith('/preview')) {
+            urlObj.pathname = urlObj.pathname.replace('/preview', '/view')
+        } else if (!urlObj.pathname.endsWith('/view')) {
+            urlObj.pathname += '/view'
         }
 
-        return cdnUrl.toString()
+        // Ensure Project ID is present (Crucial for Appwrite access)
+        const currentProject = urlObj.searchParams.get('project')
+        const envProject = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
+        if (!currentProject && envProject) {
+            urlObj.searchParams.set('project', envProject)
+        }
+
+        // Remove unnecessary params from source URL to keep detailed cache key clean
+        urlObj.searchParams.delete('width')
+        urlObj.searchParams.delete('height')
+        urlObj.searchParams.delete('quality')
+        urlObj.searchParams.delete('gravity')
+        urlObj.searchParams.delete('output')
+        urlObj.searchParams.delete('mode')
+
+        const originalUrl = urlObj.toString()
+
+        // 2. Construct Weserv URL
+        // Docs: https://wohoo.github.io/weserv-docs/
+        const weservUrl = new URL(WESERV_BASE_URL)
+        weservUrl.searchParams.set('url', originalUrl)
+
+        // Add optimization params
+        if (options.width) weservUrl.searchParams.set('w', options.width.toString())
+        if (options.height) weservUrl.searchParams.set('h', options.height.toString())
+        weservUrl.searchParams.set('q', (options.quality || 80).toString())
+        weservUrl.searchParams.set('output', options.output || 'webp')
+
+        // 'l' = 0 (default) -> fits within width/height
+        // 'fit' = cover -> strict crop if both dimensions provided
+        if (options.width && options.height) {
+            weservUrl.searchParams.set('fit', 'cover')
+        }
+
+        return weservUrl.toString()
 
     } catch (e) {
-        console.error("Error generating CDN URL:", e)
+        console.error("Error generating Weserv URL:", e)
         return url
     }
 }

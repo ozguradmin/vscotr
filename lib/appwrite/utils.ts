@@ -1,4 +1,5 @@
-import { APPWRITE_CONFIG } from "./client"
+import { storage, APPWRITE_CONFIG } from "./client"
+import { ImageFormat } from "appwrite"
 
 interface OptimizeImageOptions {
     width?: number
@@ -8,6 +9,10 @@ interface OptimizeImageOptions {
     output?: "jpg" | "jpeg" | "gif" | "png" | "webp"
 }
 
+/**
+ * Generate optimized image URL using Appwrite SDK's getFilePreview
+ * This ensures proper authentication and URL format
+ */
 export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions = {}) {
     if (!url) return url
 
@@ -17,52 +22,58 @@ export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions 
     }
 
     try {
+        // Extract fileId from URL
+        // URL format: https://xxx.cloud.appwrite.io/v1/storage/buckets/{bucketId}/files/{fileId}/view?project=xxx
         const urlObj = new URL(url)
-        const pathname = urlObj.pathname
+        const pathParts = urlObj.pathname.split('/')
 
-        // Handle different URL formats:
-        // Format 1: /storage/buckets/{bucketId}/files/{fileId}/view
-        // Format 2: /storage/buckets/{bucketId}/files/{fileId} (no view suffix)
-        // Target:   /storage/buckets/{bucketId}/files/{fileId}/preview
+        // Find 'files' in path and get the next segment as fileId
+        const filesIndex = pathParts.indexOf('files')
+        if (filesIndex === -1 || filesIndex + 1 >= pathParts.length) {
+            return url
+        }
+        const fileId = pathParts[filesIndex + 1]
 
-        if (pathname.endsWith('/view')) {
-            urlObj.pathname = pathname.replace('/view', '/preview')
-        } else if (pathname.endsWith('/preview')) {
-            // Already preview, do nothing
-        } else {
-            // No /view or /preview suffix - append /preview
-            urlObj.pathname = pathname + '/preview'
+        // Find bucket ID
+        const bucketsIndex = pathParts.indexOf('buckets')
+        if (bucketsIndex === -1 || bucketsIndex + 1 >= pathParts.length) {
+            return url
+        }
+        const bucketId = pathParts[bucketsIndex + 1]
+
+        // Map output format to Appwrite ImageFormat
+        let outputFormat: ImageFormat | undefined
+        switch (options.output) {
+            case 'webp': outputFormat = ImageFormat.Webp; break
+            case 'jpg': case 'jpeg': outputFormat = ImageFormat.Jpg; break
+            case 'png': outputFormat = ImageFormat.Png; break
+            case 'gif': outputFormat = ImageFormat.Gif; break
+            default: outputFormat = ImageFormat.Webp // Default to webp
         }
 
-        // Add optimization params
-        if (options.width) urlObj.searchParams.set('width', options.width.toString())
-        if (options.height) urlObj.searchParams.set('height', options.height.toString())
-        urlObj.searchParams.set('quality', (options.quality || 80).toString())
-        if (options.gravity) urlObj.searchParams.set('gravity', options.gravity)
-        urlObj.searchParams.set('output', options.output || 'webp')
+        // Use Appwrite SDK to generate proper preview URL
+        const previewUrl = storage.getFilePreview(
+            bucketId,
+            fileId,
+            options.width || undefined,  // width
+            options.height || undefined, // height
+            undefined, // gravity
+            options.quality || 80, // quality
+            undefined, // borderWidth
+            undefined, // borderColor
+            undefined, // borderRadius
+            undefined, // opacity
+            undefined, // rotation
+            undefined, // background
+            outputFormat // output format
+        )
 
-        // Ensure project ID is present
-        const currentProject = urlObj.searchParams.get('project')
-        const envProject = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
-
-        if (!currentProject && envProject) {
-            urlObj.searchParams.set('project', envProject)
+        // DEBUG
+        if (typeof window !== 'undefined') {
+            console.log('[ImageOpt] SDK URL:', previewUrl.toString().substring(0, 100) + '...')
         }
 
-        // Remove mode param if exists
-        if (urlObj.searchParams.has('mode')) {
-            urlObj.searchParams.delete('mode')
-        }
-
-        const result = urlObj.toString()
-
-        // DEBUG: Show full path difference
-        if (typeof window !== 'undefined' && url !== result) {
-            console.log('[ImageOpt] Path:', pathname, '->', urlObj.pathname)
-            console.log('[ImageOpt] Params:', urlObj.search)
-        }
-
-        return result
+        return previewUrl.toString()
     } catch (e) {
         console.error("Error optimizing image URL:", e)
         return url

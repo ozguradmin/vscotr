@@ -42,7 +42,7 @@ export function MobileMenu({ isOpen, onClose, currentUserId, currentUsername }: 
             <Link
               href={`/${(displayUsername || "").trim()}`}
               onClick={onClose}
-              className="block text-xl font-medium hover:text-primary transition-colors"
+              className="block text-2xl font-light hover:text-primary transition-colors"
             >
               Profil
             </Link>

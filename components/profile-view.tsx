@@ -47,6 +47,16 @@ interface Post {
     }
 }
 
+// Seeded RNG
+function mulberry32(a: number) {
+    return function () {
+        var t = a += 0x6D2B79F5;
+        t = Math.imul(t ^ t >>> 15, t | 1);
+        t ^= t + Math.imul(t ^ t >>> 7, t | 61);
+        return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    }
+}
+
 interface Repost {
     id: string
     $id?: string
@@ -90,6 +100,20 @@ export function ProfileView({
     const [activeTab, setActiveTab] = useState<"posts" | "reposts">("posts")
 
     // Sort & Filter States - Load from profile (database)
+    const [shuffleSeed, setShuffleSeed] = useState<number>(0)
+
+    // Load/Init Shuffle Seed
+    useEffect(() => {
+        const saved = localStorage.getItem('shuffleSeed')
+        if (saved) {
+            setShuffleSeed(parseInt(saved))
+        } else {
+            const newSeed = Date.now()
+            localStorage.setItem('shuffleSeed', newSeed.toString())
+            setShuffleSeed(newSeed)
+        }
+    }, [])
+
     const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">(() => {
         const saved = profile.grid_sort
         if (saved === 'newest' || saved === 'oldest' || saved === 'shuffle') return saved
@@ -165,6 +189,14 @@ export function ProfileView({
 
     // Handle Sort Change - close filter menu too
     const handleSortChange = (type: "newest" | "oldest" | "shuffle") => {
+        if (type === 'shuffle') {
+            if (sortOrder === 'shuffle') {
+                // User explicitly clicked shuffle again -> Re-shuffle
+                const newSeed = Date.now()
+                localStorage.setItem('shuffleSeed', newSeed.toString())
+                setShuffleSeed(newSeed)
+            }
+        }
         setSortOrder(type)
         setShowSortMenu(false)
         setShowFilterMenu(false)
@@ -221,7 +253,8 @@ export function ProfileView({
                 }))
 
                 if (sortOrder === 'shuffle') {
-                    formattedPosts = formattedPosts.sort(() => Math.random() - 0.5);
+                    const rnd = mulberry32(shuffleSeed)
+                    formattedPosts = formattedPosts.sort(() => rnd() - 0.5);
                 }
 
                 setClientPosts(formattedPosts)
@@ -294,7 +327,8 @@ export function ProfileView({
         }
 
         fetchProfileData()
-    }, [profile.id, sortOrder])
+        fetchProfileData()
+    }, [profile.id, sortOrder, shuffleSeed])
 
     // Load Post States
     useEffect(() => {
@@ -619,8 +653,8 @@ export function ProfileView({
                         </div>
                     </div>
 
-                    <div className="flex-1 text-center md:text-left w-full md:w-auto">
-                        <div className="flex flex-col md:flex-row items-center md:items-baseline gap-3 mb-4">
+                    <div className="flex-1 text-left w-full md:w-auto">
+                        <div className="flex flex-col md:flex-row items-start md:items-baseline gap-3 mb-4">
                             <h1 className="text-3xl md:text-4xl font-light tracking-wide">{profile.username}</h1>
                             {profile.member_badge && (
                                 <span className="bg-foreground text-background text-[10px] px-2 py-0.5 rounded-sm uppercase tracking-widest font-bold">
@@ -629,9 +663,9 @@ export function ProfileView({
                             )}
                         </div>
 
-                        {profile.bio && <p className="text-base text-foreground/80 mb-4 font-light leading-relaxed max-w-md mx-auto md:mx-0">{profile.bio}</p>}
+                        {profile.bio && <p className="text-base text-foreground/80 mb-4 font-light leading-relaxed max-w-md mx-0">{profile.bio}</p>}
 
-                        <div className="flex flex-wrap items-center justify-center md:justify-start gap-4 mb-6 text-sm text-muted-foreground font-light">
+                        <div className="flex flex-wrap items-center justify-start gap-4 mb-6 text-sm text-muted-foreground font-light">
                             {profile.location && (
                                 <span className="flex items-center gap-1">
                                     <MapPin className="w-3 h-3" />
@@ -664,7 +698,7 @@ export function ProfileView({
 
                         {isOwnProfile && (
                             <div className="flex flex-col gap-6">
-                                <div className="flex items-center justify-center md:justify-start gap-3">
+                                <div className="flex items-center justify-start gap-3">
                                     <Button variant="outline" size="sm" onClick={() => router.push('/ayarlar')} className="rounded-full px-6 text-xs uppercase tracking-wider font-medium h-9 border-foreground/20 hover:border-foreground transition-colors">
                                         Profili Düzenle
                                     </Button>
@@ -680,7 +714,7 @@ export function ProfileView({
                                         <Share2 className="w-4 h-4" />
                                     </Button>
                                 </div>
-                                <div className="flex gap-6 text-sm font-light text-muted-foreground justify-center md:justify-start">
+                                <div className="flex gap-6 text-sm font-light text-muted-foreground justify-start">
                                     <button onClick={openFollowersModal} className="hover:text-foreground transition-colors">
                                         <strong className="font-medium text-foreground">{followersCount}</strong> takipçi
                                     </button>
@@ -801,7 +835,7 @@ export function ProfileView({
                                 <p>
                                     {activeTab === "posts"
                                         ? "Henüz hiç gönderi yok"
-                                        : "Henüz hiç yeniden paylaşım yok"}
+                                        : "Henüz hiç repost yok"}
                                 </p>
                             )}
                         </div>

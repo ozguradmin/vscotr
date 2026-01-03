@@ -770,54 +770,67 @@ export function ProfileView({
                                 </Button>
                             </Link>
                             {(showSortMenu || showFilterMenu) && (
-                                <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
-                            )}
-                            {showSortMenu && (
-                                <div className="absolute top-10 left-0 bg-background/90 backdrop-blur-2xl border border-white/20 rounded-xl shadow-2xl z-50 p-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="flex flex-col gap-1">
-                                        {[
-                                            { id: 'newest', label: 'En Yeni', desc: 'Tarihe göre yeniden eskiye' },
-                                            { id: 'oldest', label: 'En Eski', desc: 'Tarihe göre eskiden yeniye' },
-                                            { id: 'shuffle', label: 'Karışık', desc: 'Sürpriz bir düzen' },
-                                            { id: 'manual', label: 'Özel', desc: 'Senin belirlediğin sıra' },
-                                        ].map((o) => (
-                                            <button
-                                                key={o.id}
-                                                onClick={() => handleSortChange(o.id as any)}
-                                                className={`text-left px-3 py-2 rounded-lg transition-colors ${sortOrder === o.id ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"}`}
-                                            >
-                                                <div className="font-medium text-sm flex items-center gap-2">
-                                                    {o.label}
-                                                    {sortOrder === o.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                                </div>
-                                                <div className="text-[10px] text-muted-foreground opacity-80">{o.desc}</div>
-                                            </button>
-                                        ))}
-                                    </div>
-                                </div>
-                            )}
-                            {showFilterMenu && (
-                                <div className="absolute top-10 left-0 bg-background/90 backdrop-blur-2xl border border-white/20 rounded-xl shadow-2xl z-50 p-2 min-w-[180px] animate-in fade-in zoom-in-95 duration-200">
-                                    <div className="flex flex-col gap-1">
-                                        {[
-                                            { id: 'default', label: 'Standart', desc: 'Orijinal renkler' },
-                                            { id: 'dark', label: 'Karanlık', desc: 'Sinematik ve koyu' },
-                                            { id: 'light', label: 'Aydınlık', desc: 'Ferah ve parlak' },
-                                            { id: 'soft', label: 'Yumuşak', desc: 'Vintage esintiler' },
-                                        ].map((f) => (
-                                            <button
-                                                key={f.id}
-                                                onClick={() => handleFilterChange(f.id as any)}
-                                                className={`text-left px-3 py-2 rounded-lg transition-colors ${filterType === f.id ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"}`}
-                                            >
-                                                <div className="font-medium text-sm flex items-center gap-2">
-                                                    {f.label}
-                                                    {filterType === f.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
-                                                </div>
-                                                <div className="text-[10px] text-muted-foreground opacity-80">{f.desc}</div>
-                                            </button>
-                                        ))}
-                                    </div>
+                                <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200" onClick={closeAllMenus}>
+                                    {showSortMenu && (
+                                        <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                                            <div className="flex items-center justify-between p-4 border-b border-border">
+                                                <h3 className="font-semibold text-sm">Düzen</h3>
+                                                <button onClick={closeAllMenus} className="p-1 hover:bg-secondary rounded-full transition-colors">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <div className="p-2 flex flex-col gap-1">
+                                                {[
+                                                    { id: 'newest', label: 'En Yeni', desc: 'Tarihe göre yeniden eskiye' },
+                                                    { id: 'oldest', label: 'En Eski', desc: 'Tarihe göre eskiden yeniye' },
+                                                    { id: 'shuffle', label: 'Karışık', desc: 'Sürpriz bir düzen' },
+                                                    { id: 'manual', label: 'Özel', desc: 'Senin belirlediğin sıra' },
+                                                ].map((o) => (
+                                                    <button
+                                                        key={o.id}
+                                                        onClick={() => handleSortChange(o.id as any)}
+                                                        className={`text-left px-4 py-3 rounded-lg transition-colors ${sortOrder === o.id ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"}`}
+                                                    >
+                                                        <div className="font-medium text-sm flex items-center gap-2">
+                                                            {o.label}
+                                                            {sortOrder === o.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                        </div>
+                                                        <div className="text-[10px] text-muted-foreground opacity-80 mt-0.5">{o.desc}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
+                                    {showFilterMenu && (
+                                        <div className="bg-background border border-border rounded-xl shadow-2xl w-full max-w-sm overflow-hidden animate-in zoom-in-95 duration-200" onClick={e => e.stopPropagation()}>
+                                            <div className="flex items-center justify-between p-4 border-b border-border">
+                                                <h3 className="font-semibold text-sm">Ton</h3>
+                                                <button onClick={closeAllMenus} className="p-1 hover:bg-secondary rounded-full transition-colors">
+                                                    <X className="w-4 h-4" />
+                                                </button>
+                                            </div>
+                                            <div className="p-2 flex flex-col gap-1">
+                                                {[
+                                                    { id: 'default', label: 'Standart', desc: 'Orijinal renkler' },
+                                                    { id: 'dark', label: 'Karanlık', desc: 'Sinematik ve koyu' },
+                                                    { id: 'light', label: 'Aydınlık', desc: 'Ferah ve parlak' },
+                                                    { id: 'soft', label: 'Yumuşak', desc: 'Vintage esintiler' },
+                                                ].map((f) => (
+                                                    <button
+                                                        key={f.id}
+                                                        onClick={() => handleFilterChange(f.id as any)}
+                                                        className={`text-left px-4 py-3 rounded-lg transition-colors ${filterType === f.id ? "bg-secondary text-secondary-foreground" : "hover:bg-muted"}`}
+                                                    >
+                                                        <div className="font-medium text-sm flex items-center gap-2">
+                                                            {f.label}
+                                                            {filterType === f.id && <div className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                                                        </div>
+                                                        <div className="text-[10px] text-muted-foreground opacity-80 mt-0.5">{f.desc}</div>
+                                                    </button>
+                                                ))}
+                                            </div>
+                                        </div>
+                                    )}
                                 </div>
                             )}
                         </div>

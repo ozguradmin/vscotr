@@ -26,12 +26,13 @@ function SortableItem({ id, post }: { id: string, post: any }) {
     }
 
     return (
-        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="aspect-square relative group bg-muted rounded-md overflow-hidden touch-none cursor-move shadow-sm hover:shadow-md transition-shadow">
+        <div ref={setNodeRef} style={style} {...attributes} {...listeners} className="aspect-square relative group bg-muted overflow-hidden touch-none cursor-move select-none">
             {post.image_url ? (
-                <img src={post.image_url} alt="" className="w-full h-full object-cover pointer-events-none" />
+                <img src={post.image_url} alt="" className="w-full h-full object-cover pointer-events-none select-none" />
             ) : (
                 <div className="w-full h-full flex items-center justify-center bg-muted text-muted-foreground text-xs">?</div>
             )}
+            <div className="absolute inset-0 bg-black/0 group-hover:bg-black/10 transition-colors" />
         </div>
     )
 }
@@ -108,7 +109,7 @@ export function ManualSortModal({ isOpen, onClose, posts, onSaveSuccess }: Manua
                     </button>
                 </div>
 
-                <div className="flex-1 overflow-y-auto p-4 bg-muted/10">
+                <div className="flex-1 overflow-y-auto p-4 bg-background">
                     <DndContext
                         sensors={sensors}
                         collisionDetection={closestCenter}
@@ -116,7 +117,7 @@ export function ManualSortModal({ isOpen, onClose, posts, onSaveSuccess }: Manua
                         onDragStart={handleDragStart}
                     >
                         <SortableContext items={items.map(p => p.id)} strategy={rectSortingStrategy}>
-                            <div className="grid grid-cols-3 gap-2">
+                            <div className="grid grid-cols-3 gap-1">
                                 {items.map((post) => (
                                     <SortableItem key={post.id} id={post.id} post={post} />
                                 ))}
@@ -124,7 +125,7 @@ export function ManualSortModal({ isOpen, onClose, posts, onSaveSuccess }: Manua
                         </SortableContext>
                         <DragOverlay>
                             {activeId ? (
-                                <div className="aspect-square bg-background rounded-md shadow-2xl opacity-90 border-2 border-primary overflow-hidden">
+                                <div className="aspect-square relative overflow-hidden shadow-2xl opacity-90 scale-105 z-50 ring-2 ring-primary">
                                     <img src={items.find(i => i.id === activeId)?.image_url} className="w-full h-full object-cover" />
                                 </div>
                             ) : null}

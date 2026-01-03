@@ -25,17 +25,56 @@ export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }
     const [bio, setBio] = useState(currentProfile.bio || "")
     const [loading, setLoading] = useState(false)
     const [previewPosts, setPreviewPosts] = useState(posts)
-    const { refreshUser } = useAuth() // Get refreshUser from context
-
+    const [avatarFile, setAvatarFile] = useState<File | null>(null)
+    const [avatarPreview, setAvatarPreview] = useState<string | null>(currentProfile.avatar_url)
+    const { refreshUser } = useAuth()
     const router = useRouter()
 
     if (!isOpen) return null
+
+    const handleAvatarSelect = async (e: React.ChangeEvent<HTMLInputElement>) => {
+        const file = e.target.files?.[0]
+        if (!file) return
+
+        setAvatarFile(file)
+        setAvatarPreview(URL.createObjectURL(file))
+    }
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault()
         setLoading(true)
 
         try {
+            let finalAvatarUrl = currentProfile.avatar_url
+
+            // Upload Avatar to R2 if changed
+            if (avatarFile) {
+                // Get Presigned URL
+                const presignRes = await fetch('/api/upload', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        filename: avatarFile.name,
+                        contentType: avatarFile.type || 'image/jpeg'
+                    })
+                });
+
+                if (!presignRes.ok) throw new Error('Upload init failed');
+                const { uploadUrl, publicUrl } = await presignRes.json();
+
+                // Upload directly to R2
+                const uploadRes = await fetch(uploadUrl, {
+                    method: 'PUT',
+                    body: avatarFile,
+                    headers: {
+                        'Content-Type': avatarFile.type || 'image/jpeg'
+                    }
+                });
+
+                if (!uploadRes.ok) throw new Error('R2 Upload failed');
+                finalAvatarUrl = publicUrl
+            }
+
             await databases.updateDocument(
                 APPWRITE_CONFIG.DATABASE_ID,
                 APPWRITE_CONFIG.COLLECTIONS.PROFILES,
@@ -43,6 +82,7 @@ export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }
                 {
                     display_name: displayName,
                     bio: bio,
+                    avatar_url: finalAvatarUrl,
                     updated_at: new Date().toISOString(),
                 }
             )
@@ -69,17 +109,35 @@ export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }
                 </div>
 
                 <form onSubmit={handleSubmit} className="p-4 space-y-4">
-                    <div className="space-y-2">
-                        <label htmlFor="displayName" className="text-sm font-medium">
-                            Görünen Ad
-                        </label>
-                        <input
-                            id="displayName"
-                            value={displayName}
-                            onChange={(e) => setDisplayName(e.target.value)}
-                            className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-foreground"
-                            placeholder="Adın"
-                        />
+                    <div className="flex items-center gap-4">
+                        <div className="w-20 h-20 rounded-full overflow-hidden bg-muted relative group cursor-pointer">
+                            <img
+                                src={getOptimizedImageUrl(avatarPreview || "", { width: 100, output: 'webp' }) || "/placeholder.svg"}
+                                alt="Avatar"
+                                className="w-full h-full object-cover"
+                            />
+                            <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
+                                <span className="text-white text-xs font-medium">Değiştir</span>
+                            </div>
+                            <input
+                                type="file"
+                                accept="image/*"
+                                className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
+                                onChange={handleAvatarSelect}
+                            />
+                        </div>
+                        <div className="flex-1 space-y-2">
+                            <label htmlFor="displayName" className="text-sm font-medium">
+                                Görünen Ad
+                            </label>
+                            <input
+                                id="displayName"
+                                value={displayName}
+                                onChange={(e) => setDisplayName(e.target.value)}
+                                className="w-full px-3 py-2 bg-background border border-border rounded-md focus:outline-none focus:ring-1 focus:ring-foreground"
+                                placeholder="Adın"
+                            />
+                        </div>
                     </div>
 
                     <div className="space-y-2">

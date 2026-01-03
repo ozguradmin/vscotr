@@ -224,16 +224,33 @@ export function CreateView({ userId, username }: CreateViewProps) {
       const blob = await new Promise<Blob>((resolve) => canvas.toBlob((b) => resolve(b!), "image/webp", 0.85))
       const fileToUpload = new File([blob], "image.webp", { type: "image/webp" })
 
-      // 2. Upload to Appwrite Storage
-      const fileUpload = await storage.createFile(
-        APPWRITE_CONFIG.BUCKET_ID,
-        ID.unique(),
-        fileToUpload
-      )
+      // 2. Upload to Cloudflare R2 (Bypassing Appwrite Storage Bandwidth)
+      // Get Presigned URL
+      const presignRes = await fetch('/api/upload', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          filename: 'image.webp',
+          contentType: 'image/webp'
+        })
+      });
 
-      // 3. Get Image URL
-      // Using getFileView for display, usually better to cache or use a CDN but this works for Appwrite Cloud
-      const imageUrl = storage.getFileView(APPWRITE_CONFIG.BUCKET_ID, fileUpload.$id)
+      if (!presignRes.ok) throw new Error('Upload init failed');
+      const { uploadUrl, publicUrl } = await presignRes.json();
+
+      // Upload directly to R2
+      const uploadRes = await fetch(uploadUrl, {
+        method: 'PUT',
+        body: fileToUpload,
+        headers: {
+          'Content-Type': 'image/webp'
+        }
+      });
+
+      if (!uploadRes.ok) throw new Error('R2 Upload failed');
+
+      // 3. Use Cloudflare Public URL
+      const imageUrl = publicUrl;
 
       // 4. Create Post Document
       await databases.createDocument(

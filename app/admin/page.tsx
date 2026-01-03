@@ -271,7 +271,7 @@ export default function AdminPage() {
                         {new Date(user.created_at).toLocaleDateString("tr-TR")}
                       </p>
                     </div>
-                    <span className="px-2 py-0.5 bg-foreground text-background text-xs font-medium uppercase">
+                    <span className="px-2 py-0.5 bg-[#3f5b6f] text-white text-xs font-medium uppercase shadow-sm select-none">
                       {user.member_badge || "MEMBER"}
                     </span>
                   </button>
@@ -325,7 +325,7 @@ export default function AdminPage() {
                         key={badge}
                         onClick={() => handleUpdateBadge(selectedUser.id, badge)}
                         className={`px-3 py-1.5 text-xs font-medium uppercase transition-colors ${(selectedUser.member_badge || "MEMBER") === badge
-                          ? "bg-foreground text-background"
+                          ? "bg-[#3f5b6f] text-white"
                           : "bg-muted text-muted-foreground hover:bg-muted/80"
                           }`}
                       >

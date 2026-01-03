@@ -203,12 +203,11 @@ export function ProfileView({
     // Handle Sort Change - close filter menu too
     const handleSortChange = (type: "newest" | "oldest" | "shuffle") => {
         if (type === 'shuffle') {
-            if (sortOrder === 'shuffle') {
-                // User explicitly clicked shuffle again -> Re-shuffle
-                const newSeed = Date.now()
-                localStorage.setItem('shuffleSeed', newSeed.toString())
-                setShuffleSeed(newSeed)
-            }
+            // ALWAYS generate a new seed when clicking Shuffle menu item
+            // This ensures immediate visual feedback of a "new shuffle"
+            const newSeed = Date.now() + Math.floor(Math.random() * 1000)
+            localStorage.setItem('shuffleSeed', newSeed.toString())
+            setShuffleSeed(newSeed)
         }
         setSortOrder(type)
         setShowSortMenu(false)
@@ -678,12 +677,10 @@ export function ProfileView({
                             </div>
                         </div>
                         <div className="flex flex-col items-start gap-1">
-                            <div className="flex items-center gap-3">
-                                <h1 className="text-2xl md:text-3xl font-bold tracking-tight">{profile.username}</h1>
-                                <span className="bg-blue-600 text-white text-[10px] px-2 py-0.5 rounded-md uppercase tracking-wider font-bold shadow-sm select-none">
-                                    {profile.member_badge || "MEMBER"}
-                                </span>
-                            </div>
+                            <h1 className="text-3xl md:text-4xl font-bold tracking-tight leading-none">{profile.username}</h1>
+                            <span className="bg-[#3f5b6f] text-white text-[10px] px-2 py-0.5 uppercase tracking-wider font-bold shadow-sm select-none mt-1">
+                                {profile.member_badge || "MEMBER"}
+                            </span>
                         </div>
                     </div>
 

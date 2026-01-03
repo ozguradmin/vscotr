@@ -10,7 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { account, databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
-import { Query } from "appwrite"
+import { Query, ID } from "appwrite"
+import { useSearchParams } from "next/navigation"
 
 export default function GirisPage() {
   const [email, setEmail] = useState("")
@@ -18,6 +19,8 @@ export default function GirisPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const followId = searchParams.get('follow')
   const { refreshUser } = useAuth()
 
   const handleLogin = async (e: React.FormEvent) => {
@@ -43,6 +46,37 @@ export default function GirisPage() {
       ).catch(() => null)
 
       if (profile && profile.username) {
+        // Auto-follow logic
+        if (followId && followId !== user.$id) {
+          try {
+            // Check if already following (optional, redundant but safe)
+            const check = await databases.listDocuments(
+              APPWRITE_CONFIG.DATABASE_ID,
+              APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+              [Query.equal('follower_id', user.$id), Query.equal('following_id', followId)]
+            )
+            if (check.total === 0) {
+              await databases.createDocument(
+                APPWRITE_CONFIG.DATABASE_ID,
+                APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+                ID.unique(),
+                { follower_id: user.$id, following_id: followId }
+              )
+            }
+            // Fetch target profile to redirect
+            const targetProfile = await databases.getDocument(
+              APPWRITE_CONFIG.DATABASE_ID,
+              APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+              followId
+            )
+            if (targetProfile && targetProfile.username) {
+              router.push(`/${targetProfile.username}`)
+              return
+            }
+          } catch (e) {
+            console.error("Auto follow error", e)
+          }
+        }
         router.push(`/akis`)
       } else {
         router.push("/ayarlar")
@@ -104,7 +138,7 @@ export default function GirisPage() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Hesabın yok mu?{" "}
-          <Link href="/kayit" className="text-foreground underline underline-offset-4">
+          <Link href={`/kayit${followId ? `?follow=${followId}` : ''}`} className="text-foreground underline underline-offset-4">
             Kayıt Ol
           </Link>
         </p>

@@ -57,6 +57,19 @@ function mulberry32(a: number) {
     }
 }
 
+// String Hash for robust ID seeding
+function cyrb53(str: string, seed = 0) {
+    let h1 = 0xdeadbeef ^ seed, h2 = 0x41c6ce57 ^ seed;
+    for (let i = 0, ch; i < str.length; i++) {
+        ch = str.charCodeAt(i);
+        h1 = Math.imul(h1 ^ ch, 2654435761);
+        h2 = Math.imul(h2 ^ ch, 1597334677);
+    }
+    h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+    h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+    return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+};
+
 interface Repost {
     id: string
     $id?: string
@@ -253,10 +266,14 @@ export function ProfileView({
                 }))
 
                 if (sortOrder === 'shuffle') {
-                    // Robust Shuffle: Assign random score deterministically from seed
-                    const rnd = mulberry32(shuffleSeed)
-                    // Map items to { item, score }
-                    const scored = formattedPosts.map(p => ({ p, score: rnd() }))
+                    // ID-Based Robust Shuffle: Hash(Seed + ID) per item -> Deterministic Score
+                    // This ensures that even if DB returns items in different order, the score for item X is always S(X)
+                    // and sort order is preserved.
+                    const scored = formattedPosts.map(p => {
+                        const hash = cyrb53(p.id, shuffleSeed)
+                        const rnd = mulberry32(hash)() // Generate number from hash
+                        return { p, score: rnd }
+                    })
                     // Sort by score
                     scored.sort((a, b) => a.score - b.score)
                     // Map back
@@ -481,7 +498,7 @@ export function ProfileView({
 
     const handleFollow = async () => {
         if (!currentUserId) {
-            router.push("/giris")
+            router.push(`/giris?follow=${profile.id}`)
             return
         }
 
@@ -642,7 +659,7 @@ export function ProfileView({
             <SettingsModal isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
 
             <main className="max-w-2xl mx-auto px-4 py-8 md:py-12">
-                <div className="flex flex-col gap-5 md:gap-6 mb-12">
+                <div className="flex flex-col gap-3 md:gap-4 mb-12">
                     {/* Row 1: Header (Avatar + Name) */}
                     <div className="flex items-center gap-4 md:gap-5">
                         <div className="flex-shrink-0">
@@ -693,7 +710,7 @@ export function ProfileView({
                                         href={link.url}
                                         target="_blank"
                                         rel="noopener noreferrer"
-                                        className="text-xs md:text-sm font-medium hover:text-foreground transition-colors flex items-center gap-1 text-blue-600 dark:text-blue-400"
+                                        className="text-xs md:text-sm font-medium hover:text-foreground transition-colors flex items-center gap-1"
                                     >
                                         <Link2 className="w-3 h-3" />
                                         {link.label || "Link"}
@@ -705,7 +722,8 @@ export function ProfileView({
 
                     {/* Row 4: Actions */}
                     <div className="flex items-center gap-4 mt-2 pl-1">
-                        {currentUserId && profile.id !== currentUserId && (
+                        {/* Guest or Other User: Show Follow */}
+                        {(!currentUserId || profile.id !== currentUserId) && (
                             <div className="flex items-center gap-3">
                                 <Button
                                     onClick={handleFollow}
@@ -714,23 +732,27 @@ export function ProfileView({
                                 >
                                     {isFollowing ? "Takip Ediliyor" : "Takip Et"}
                                 </Button>
-                                {/* More Button */}
-                                <Button variant="ghost" size="icon" className="h-10 w-10 rounded-full">
-                                    <span className="sr-only">Daha fazla</span>
-                                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="w-5 h-5"><circle cx="12" cy="12" r="1" /><circle cx="19" cy="12" r="1" /><circle cx="5" cy="12" r="1" /></svg>
-                                </Button>
                             </div>
                         )}
 
                         {isOwnProfile && (
-                            <div className="flex flex-wrap items-center gap-3">
+                            <div className="flex flex-wrap items-center gap-4">
                                 <Button variant="outline" size="sm" onClick={() => router.push('/ayarlar')} className="rounded-full px-6 text-xs uppercase tracking-wider font-medium h-9 border-foreground/20 hover:border-foreground transition-colors">
                                     Profili Düzenle
                                 </Button>
+                                {/* Followers in Edit Row - Only for Owner */}
+                                <div className="flex gap-4 text-sm font-light text-muted-foreground">
+                                    <button onClick={openFollowersModal} className="hover:text-foreground transition-colors">
+                                        <strong className="font-medium text-foreground">{followersCount}</strong> takipçi
+                                    </button>
+                                    <button onClick={openFollowingModal} className="hover:text-foreground transition-colors">
+                                        <strong className="font-medium text-foreground">{followingCount}</strong> takip
+                                    </button>
+                                </div>
                                 <Button
                                     variant="ghost"
                                     size="icon"
-                                    className="h-9 w-9 rounded-full hover:bg-accent"
+                                    className="h-9 w-9 rounded-full hover:bg-accent ml-auto md:ml-0"
                                     onClick={async () => {
                                         const shareData = { title: `${profile.username} - VSCO TR`, url: window.location.href }
                                         try { navigator.share ? await navigator.share(shareData) : await navigator.clipboard.writeText(window.location.href) } catch { }
@@ -742,19 +764,9 @@ export function ProfileView({
                         )}
                     </div>
 
-                    {/* Follow Counts - Optional placement, putting below actions as small text */}
-                    <div className="flex gap-6 text-sm font-light text-muted-foreground justify-start pl-1 mt-1">
-                        <button onClick={openFollowersModal} className="hover:text-foreground transition-colors">
-                            <strong className="font-medium text-foreground">{followersCount}</strong> takipçi
-                        </button>
-                        <button onClick={openFollowingModal} className="hover:text-foreground transition-colors">
-                            <strong className="font-medium text-foreground">{followingCount}</strong> takip
-                        </button>
-                    </div>
-
                     {/* Sort/Filter Toolbar (Own Profile) - Kept relative */}
                     {isOwnProfile && activeTab === "posts" && (
-                        <div className="w-full flex flex-wrap items-center justify-start gap-2 mt-4 pl-1">
+                        <div className="w-full flex flex-wrap items-center justify-start gap-2 mt-2 pl-1">
                             <Button
                                 variant="ghost"
                                 size="sm"
@@ -783,16 +795,16 @@ export function ProfileView({
                                 <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
                             )}
                             {showSortMenu && (
-                                <div className="absolute mt-8 bg-background border rounded-md shadow-lg z-20 py-1 min-w-[120px]">
+                                <div className="absolute mt-8 bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl z-20 py-2 min-w-[140px] animate-in fade-in zoom-in-95 duration-200">
                                     {['newest', 'oldest', 'shuffle'].map(o => (
-                                        <button key={o} onClick={() => handleSortChange(o as any)} className="w-full text-left px-4 py-2 text-xs hover:bg-accent capitalize">{o === 'newest' ? 'Yeni' : o === 'oldest' ? 'Eski' : 'Karışık'}</button>
+                                        <button key={o} onClick={() => handleSortChange(o as any)} className="w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-foreground/5 transition-colors capitalize">{o === 'newest' ? 'Yeni' : o === 'oldest' ? 'Eski' : 'Karışık'}</button>
                                     ))}
                                 </div>
                             )}
                             {showFilterMenu && (
-                                <div className="absolute mt-8 ml-20 bg-background border rounded-md shadow-lg z-20 py-1 min-w-[120px]">
+                                <div className="absolute mt-8 ml-20 bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl z-20 py-2 min-w-[140px] animate-in fade-in zoom-in-95 duration-200">
                                     {['default', 'dark', 'light', 'soft'].map(f => (
-                                        <button key={f} onClick={() => handleFilterChange(f as any)} className="w-full text-left px-4 py-2 text-xs hover:bg-accent capitalize">{f}</button>
+                                        <button key={f} onClick={() => handleFilterChange(f as any)} className="w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-foreground/5 transition-colors capitalize">{f}</button>
                                     ))}
                                 </div>
                             )}
@@ -869,251 +881,257 @@ export function ProfileView({
             </main >
 
             {/* Full Screen Post Modal */}
-            {selectedPost && selectedPostIndex !== null && (
-                <div
-                    className="fixed inset-0 z-50 bg-background flex flex-col"
-                    onTouchStart={onTouchStart}
-                    onTouchMove={onTouchMove}
-                    onTouchEnd={onTouchEnd}
-                >
-                    <div className="flex items-center justify-end h-14 px-4 border-b border-border flex-shrink-0">
-                        <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full">
-                            <X className="w-6 h-6" />
-                        </button>
-                    </div>
-
-                    <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
-                        <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
-                            {/* Native img for reliability */}
-                            <img
-                                src={selectedPost.image_url || "/placeholder.svg"}
-                                alt={selectedPost.caption || ""}
-                                className="max-w-full max-h-full object-contain"
-                                style={{ filter: getFilterStyle() }}
-                            />
+            {
+                selectedPost && selectedPostIndex !== null && (
+                    <div
+                        className="fixed inset-0 z-50 bg-background flex flex-col"
+                        onTouchStart={onTouchStart}
+                        onTouchMove={onTouchMove}
+                        onTouchEnd={onTouchEnd}
+                    >
+                        <div className="flex items-center justify-end h-14 px-4 border-b border-border flex-shrink-0">
+                            <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full">
+                                <X className="w-6 h-6" />
+                            </button>
                         </div>
 
+                        <div className="flex-1 flex flex-col items-center justify-center p-4 overflow-auto relative min-h-0 bg-background">
+                            <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
+                                {/* Native img for reliability */}
+                                <img
+                                    src={selectedPost.image_url || "/placeholder.svg"}
+                                    alt={selectedPost.caption || ""}
+                                    className="max-w-full max-h-full object-contain"
+                                    style={{ filter: getFilterStyle() }}
+                                />
+                            </div>
 
-                        {selectedPostIndex > 0 && (
-                            <button
-                                onClick={() => navigatePost("prev")}
-                                className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
-                            >
-                                <ChevronLeft className="w-6 h-6" />
-                            </button>
-                        )}
-                        {selectedPostIndex < currentPosts.length - 1 && (
-                            <button
-                                onClick={() => navigatePost("next")}
-                                className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
-                            >
-                                <ChevronRight className="w-6 h-6" />
-                            </button>
-                        )}
-                    </div>
 
-                    <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
-                        <div className="p-4 flex items-start justify-between gap-4">
-                            {/* Show original owner for reposts, profile for own posts */}
-                            {selectedPost.isRepost && selectedPost.original_owner ? (
-                                <Link href={`/${selectedPost.original_owner.username}`} className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
-                                        {selectedPost.original_owner.avatar_url ? (
-                                            <img
-                                                src={selectedPost.original_owner.avatar_url}
-                                                alt=""
-                                                className="w-full h-full object-cover"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
-                                                {selectedPost.original_owner.username[0].toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate">{selectedPost.original_owner.username}</p>
-                                        <p className="text-xs text-muted-foreground">Repostladın</p>
-                                        {selectedPost.caption && (
-                                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
-                                        )}
-                                    </div>
-                                </Link>
-                            ) : (
-                                <div className="flex items-center gap-3 min-w-0 flex-1">
-                                    <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
-                                        {profile.avatar_url ? (
-                                            <VscoImage
-                                                src={profile.avatar_url}
-                                                alt=""
-                                                className="w-full h-full"
-                                            />
-                                        ) : (
-                                            <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
-                                                {profile.username[0].toUpperCase()}
-                                            </div>
-                                        )}
-                                    </div>
-                                    <div className="flex-1 min-w-0">
-                                        <p className="font-medium truncate">{profile.username}</p>
-                                        {profile.member_badge && (
-                                            <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
-                                        )}
-                                        {selectedPost.caption && (
-                                            <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
-                                        )}
-                                    </div>
-                                </div>
+                            {selectedPostIndex > 0 && (
+                                <button
+                                    onClick={() => navigatePost("prev")}
+                                    className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
+                                >
+                                    <ChevronLeft className="w-6 h-6" />
+                                </button>
                             )}
-
-                            {/* Action buttons based on post type */}
-                            {isOwnProfile && selectedPost.isRepost && selectedPost.repost_id ? (
-                                // Repost: show "remove repost" button (deletes from reposts table, not posts)
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={async () => {
-                                            if (!confirm("Bu repostu kaldırmak istediğinizden emin misiniz?")) return
-                                            try {
-                                                await databases.deleteDocument(
-                                                    APPWRITE_CONFIG.DATABASE_ID,
-                                                    APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
-                                                    selectedPost.repost_id!
-                                                )
-                                                setSelectedPostIndex(null)
-                                                window.location.reload()
-                                            } catch (e) {
-                                                console.error("Remove repost error", e)
-                                                alert("Repost kaldırılırken hata oluştu")
-                                            }
-                                        }}
-                                        className="p-2 hover:bg-orange-100 rounded-full transition-colors text-orange-500"
-                                        title="Repostu Kaldır"
-                                    >
-                                        <RotateCcw className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            ) : isOwnProfile ? (
-                                // Own post: show delete button
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={async () => {
-                                            if (!confirm("Bu gönderiyi silmek istediğinizden emin misiniz?")) return
-                                            try {
-                                                await databases.deleteDocument(
-                                                    APPWRITE_CONFIG.DATABASE_ID,
-                                                    APPWRITE_CONFIG.COLLECTIONS.POSTS,
-                                                    selectedPost.id
-                                                )
-                                                setSelectedPostIndex(null)
-                                                window.location.reload()
-                                            } catch (e) {
-                                                console.error("Delete error", e)
-                                                alert("Silinirken hata oluştu")
-                                            }
-                                        }}
-                                        className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500"
-                                        title="Sil"
-                                    >
-                                        <Trash2 className="w-5 h-5" />
-                                    </button>
-                                </div>
-                            ) : (
-                                <div className="flex items-center gap-2 flex-shrink-0">
-                                    <button
-                                        onClick={() => handleLike(selectedPost.id)}
-                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""}`}
-                                    >
-                                        <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
-                                    </button>
-                                    <button
-                                        onClick={() => handleRepost(selectedPost.id)}
-                                        className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""}`}
-                                    >
-                                        <RotateCcw className="w-5 h-5" />
-                                    </button>
-                                </div>
+                            {selectedPostIndex < currentPosts.length - 1 && (
+                                <button
+                                    onClick={() => navigatePost("next")}
+                                    className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 hover:bg-accent rounded-full transition-colors backdrop-blur-sm z-10"
+                                >
+                                    <ChevronRight className="w-6 h-6" />
+                                </button>
                             )}
                         </div>
+
+                        <div className="fixed md:relative bottom-16 md:bottom-0 left-0 right-0 bg-background border-t border-border z-10 flex-shrink-0">
+                            <div className="p-4 flex items-start justify-between gap-4">
+                                {/* Show original owner for reposts, profile for own posts */}
+                                {selectedPost.isRepost && selectedPost.original_owner ? (
+                                    <Link href={`/${selectedPost.original_owner.username}`} className="flex items-center gap-3 min-w-0 flex-1">
+                                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                                            {selectedPost.original_owner.avatar_url ? (
+                                                <img
+                                                    src={selectedPost.original_owner.avatar_url}
+                                                    alt=""
+                                                    className="w-full h-full object-cover"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                                                    {selectedPost.original_owner.username[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">{selectedPost.original_owner.username}</p>
+                                            <p className="text-xs text-muted-foreground">Repostladın</p>
+                                            {selectedPost.caption && (
+                                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
+                                            )}
+                                        </div>
+                                    </Link>
+                                ) : (
+                                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                                        <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
+                                            {profile.avatar_url ? (
+                                                <VscoImage
+                                                    src={profile.avatar_url}
+                                                    alt=""
+                                                    className="w-full h-full"
+                                                />
+                                            ) : (
+                                                <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">
+                                                    {profile.username[0].toUpperCase()}
+                                                </div>
+                                            )}
+                                        </div>
+                                        <div className="flex-1 min-w-0">
+                                            <p className="font-medium truncate">{profile.username}</p>
+                                            {profile.member_badge && (
+                                                <p className="text-xs text-muted-foreground uppercase">{profile.member_badge}</p>
+                                            )}
+                                            {selectedPost.caption && (
+                                                <p className="text-sm text-muted-foreground mt-1 line-clamp-2">{selectedPost.caption}</p>
+                                            )}
+                                        </div>
+                                    </div>
+                                )}
+
+                                {/* Action buttons based on post type */}
+                                {isOwnProfile && selectedPost.isRepost && selectedPost.repost_id ? (
+                                    // Repost: show "remove repost" button (deletes from reposts table, not posts)
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={async () => {
+                                                if (!confirm("Bu repostu kaldırmak istediğinizden emin misiniz?")) return
+                                                try {
+                                                    await databases.deleteDocument(
+                                                        APPWRITE_CONFIG.DATABASE_ID,
+                                                        APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+                                                        selectedPost.repost_id!
+                                                    )
+                                                    setSelectedPostIndex(null)
+                                                    window.location.reload()
+                                                } catch (e) {
+                                                    console.error("Remove repost error", e)
+                                                    alert("Repost kaldırılırken hata oluştu")
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-orange-100 rounded-full transition-colors text-orange-500"
+                                            title="Repostu Kaldır"
+                                        >
+                                            <RotateCcw className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                ) : isOwnProfile ? (
+                                    // Own post: show delete button
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={async () => {
+                                                if (!confirm("Bu gönderiyi silmek istediğinizden emin misiniz?")) return
+                                                try {
+                                                    await databases.deleteDocument(
+                                                        APPWRITE_CONFIG.DATABASE_ID,
+                                                        APPWRITE_CONFIG.COLLECTIONS.POSTS,
+                                                        selectedPost.id
+                                                    )
+                                                    setSelectedPostIndex(null)
+                                                    window.location.reload()
+                                                } catch (e) {
+                                                    console.error("Delete error", e)
+                                                    alert("Silinirken hata oluştu")
+                                                }
+                                            }}
+                                            className="p-2 hover:bg-red-100 rounded-full transition-colors text-red-500"
+                                            title="Sil"
+                                        >
+                                            <Trash2 className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                ) : (
+                                    <div className="flex items-center gap-2 flex-shrink-0">
+                                        <button
+                                            onClick={() => handleLike(selectedPost.id)}
+                                            className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.liked ? "text-red-500" : ""}`}
+                                        >
+                                            <Heart className={`w-5 h-5 ${postStates[selectedPost.id]?.liked ? "fill-current" : ""}`} />
+                                        </button>
+                                        <button
+                                            onClick={() => handleRepost(selectedPost.id)}
+                                            className={`p-2 hover:bg-accent rounded-full transition-colors ${postStates[selectedPost.id]?.reposted ? "text-green-500" : ""}`}
+                                        >
+                                            <RotateCcw className="w-5 h-5" />
+                                        </button>
+                                    </div>
+                                )}
+                            </div>
+                        </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Followers Modal */}
-            {showFollowersModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowFollowersModal(false)}>
-                    <div className="bg-background rounded-lg max-w-sm w-full mx-4 max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b border-border">
-                            <h2 className="font-semibold">Takipçiler</h2>
-                            <button onClick={() => setShowFollowersModal(false)} className="p-1 hover:bg-accent rounded-full">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="overflow-y-auto max-h-[60vh] p-2">
-                            {followersList.length > 0 ? (
-                                followersList.map(follower => (
-                                    <Link
-                                        key={follower.$id}
-                                        href={`/${follower.username}`}
-                                        onClick={() => setShowFollowersModal(false)}
-                                        className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
-                                    >
-                                        <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
-                                            {follower.avatar_url ? (
-                                                <img src={follower.avatar_url} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                                                    {follower.username[0].toUpperCase()}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <span className="font-medium">{follower.username}</span>
-                                    </Link>
-                                ))
-                            ) : (
-                                <p className="text-center text-muted-foreground py-8">Henüz takipçi yok</p>
-                            )}
+            {
+                showFollowersModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowFollowersModal(false)}>
+                        <div className="bg-background rounded-lg max-w-sm w-full mx-4 max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-4 border-b border-border">
+                                <h2 className="font-semibold">Takipçiler</h2>
+                                <button onClick={() => setShowFollowersModal(false)} className="p-1 hover:bg-accent rounded-full">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="overflow-y-auto max-h-[60vh] p-2">
+                                {followersList.length > 0 ? (
+                                    followersList.map(follower => (
+                                        <Link
+                                            key={follower.$id}
+                                            href={`/${follower.username}`}
+                                            onClick={() => setShowFollowersModal(false)}
+                                            className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
+                                        >
+                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
+                                                {follower.avatar_url ? (
+                                                    <img src={follower.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                                        {follower.username[0].toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="font-medium">{follower.username}</span>
+                                        </Link>
+                                    ))
+                                ) : (
+                                    <p className="text-center text-muted-foreground py-8">Henüz takipçi yok</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             {/* Following Modal */}
-            {showFollowingModal && (
-                <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowFollowingModal(false)}>
-                    <div className="bg-background rounded-lg max-w-sm w-full mx-4 max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-                        <div className="flex items-center justify-between p-4 border-b border-border">
-                            <h2 className="font-semibold">Takip Edilenler</h2>
-                            <button onClick={() => setShowFollowingModal(false)} className="p-1 hover:bg-accent rounded-full">
-                                <X className="w-5 h-5" />
-                            </button>
-                        </div>
-                        <div className="overflow-y-auto max-h-[60vh] p-2">
-                            {followingList.length > 0 ? (
-                                followingList.map(following => (
-                                    <Link
-                                        key={following.$id}
-                                        href={`/${following.username}`}
-                                        onClick={() => setShowFollowingModal(false)}
-                                        className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
-                                    >
-                                        <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
-                                            {following.avatar_url ? (
-                                                <img src={following.avatar_url} alt="" className="w-full h-full object-cover" />
-                                            ) : (
-                                                <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
-                                                    {following.username[0].toUpperCase()}
-                                                </div>
-                                            )}
-                                        </div>
-                                        <span className="font-medium">{following.username}</span>
-                                    </Link>
-                                ))
-                            ) : (
-                                <p className="text-center text-muted-foreground py-8">Henüz kimseyi takip etmiyor</p>
-                            )}
+            {
+                showFollowingModal && (
+                    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowFollowingModal(false)}>
+                        <div className="bg-background rounded-lg max-w-sm w-full mx-4 max-h-[70vh] overflow-hidden" onClick={e => e.stopPropagation()}>
+                            <div className="flex items-center justify-between p-4 border-b border-border">
+                                <h2 className="font-semibold">Takip Edilenler</h2>
+                                <button onClick={() => setShowFollowingModal(false)} className="p-1 hover:bg-accent rounded-full">
+                                    <X className="w-5 h-5" />
+                                </button>
+                            </div>
+                            <div className="overflow-y-auto max-h-[60vh] p-2">
+                                {followingList.length > 0 ? (
+                                    followingList.map(following => (
+                                        <Link
+                                            key={following.$id}
+                                            href={`/${following.username}`}
+                                            onClick={() => setShowFollowingModal(false)}
+                                            className="flex items-center gap-3 p-2 hover:bg-accent rounded-lg transition-colors"
+                                        >
+                                            <div className="w-10 h-10 rounded-full overflow-hidden bg-muted">
+                                                {following.avatar_url ? (
+                                                    <img src={following.avatar_url} alt="" className="w-full h-full object-cover" />
+                                                ) : (
+                                                    <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground">
+                                                        {following.username[0].toUpperCase()}
+                                                    </div>
+                                                )}
+                                            </div>
+                                            <span className="font-medium">{following.username}</span>
+                                        </Link>
+                                    ))
+                                ) : (
+                                    <p className="text-center text-muted-foreground py-8">Henüz kimseyi takip etmiyor</p>
+                                )}
+                            </div>
                         </div>
                     </div>
-                </div>
-            )}
+                )
+            }
 
             <MobileTabBar currentUserId={currentUserId} username={currentUsername} />
         </div >

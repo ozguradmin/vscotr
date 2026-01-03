@@ -2,7 +2,7 @@
 
 import type React from "react"
 import { useState } from "react"
-import { useRouter } from "next/navigation"
+import { useRouter, useSearchParams } from "next/navigation"
 import Link from "next/link"
 import { VscoLogo } from "@/components/vsco-logo"
 import { Button } from "@/components/ui/button"
@@ -20,6 +20,8 @@ export default function KayitPage() {
   const [error, setError] = useState<string | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const router = useRouter()
+  const searchParams = useSearchParams()
+  const followId = searchParams.get('follow')
   const { refreshUser, logout } = useAuth()
 
   const handleSignUp = async (e: React.FormEvent) => {
@@ -97,6 +99,32 @@ export default function KayitPage() {
 
       // 5. Refresh Context & Redirect
       await refreshUser()
+      await refreshUser()
+
+      // Auto-follow logic
+      if (followId) {
+        try {
+          await databases.createDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.FOLLOWS,
+            ID.unique(),
+            { follower_id: newUser.$id, following_id: followId }
+          )
+          // Fetch target profile to redirect
+          const targetProfile = await databases.getDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.PROFILES,
+            followId
+          )
+          if (targetProfile && targetProfile.username) {
+            router.push(`/${targetProfile.username}`)
+            return
+          }
+        } catch (e) {
+          console.error("Auto follow check error", e)
+        }
+      }
+
       router.push(`/${username.toLowerCase()}`)
 
     } catch (error: any) {
@@ -175,7 +203,7 @@ export default function KayitPage() {
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Zaten hesabın var mı?{" "}
-          <Link href="/giris" className="text-foreground underline underline-offset-4">
+          <Link href={`/giris${followId ? `?follow=${followId}` : ''}`} className="text-foreground underline underline-offset-4">
             Giriş Yap
           </Link>
         </p>

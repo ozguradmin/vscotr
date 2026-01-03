@@ -34,9 +34,20 @@ export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions 
         if (options.output) urlObj.searchParams.set('output', options.output)
         else urlObj.searchParams.set('output', 'webp') // Default to WebP for best compression
 
-        // Ensure project ID is preserved or added if missing (usually in search params)
-        // Client SDK usually handles this, but raw URLs might need it if we are manipulating strings.
-        // Assuming the input URL already has the project param from the SDK logic.
+        // CRITICAL FIX: Appwrite Preview endpoint often returns 401 if project ID is missing from the query params of the URL
+        // when accessed directly via <img> tag without SDK headers.
+        // We must ensure 'project' param is present.
+        const currentProject = urlObj.searchParams.get('project')
+        const envProject = process.env.NEXT_PUBLIC_APPWRITE_PROJECT_ID
+
+        if (!currentProject && envProject) {
+            urlObj.searchParams.set('project', envProject)
+        }
+
+        // Remove mode=admin to prevent potential auth conflicts on client side
+        if (urlObj.searchParams.has('mode')) {
+            urlObj.searchParams.delete('mode')
+        }
 
         return urlObj.toString()
     } catch (e) {

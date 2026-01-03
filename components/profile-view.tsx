@@ -116,9 +116,9 @@ export function ProfileView({
     // Seed state removed - we want pure random refresh
     const [refreshTrigger, setRefreshTrigger] = useState(0)
 
-    const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle">(() => {
+    const [sortOrder, setSortOrder] = useState<"newest" | "oldest" | "shuffle" | "manual">(() => {
         const saved = profile.grid_sort
-        if (saved === 'newest' || saved === 'oldest' || saved === 'shuffle') return saved
+        if (saved === 'newest' || saved === 'oldest' || saved === 'shuffle' || saved === 'manual') return saved
         return "newest"
     })
     const [filterType, setFilterType] = useState<"default" | "dark" | "light" | "soft">(() => {
@@ -190,7 +190,7 @@ export function ProfileView({
     }
 
     // Handle Sort Change - close filter menu too
-    const handleSortChange = (type: "newest" | "oldest" | "shuffle") => {
+    const handleSortChange = (type: "newest" | "oldest" | "shuffle" | "manual") => {
         if (type === 'shuffle') {
             // Force refresh on click
             setRefreshTrigger(prev => prev + 1)
@@ -234,6 +234,7 @@ export function ProfileView({
 
                 if (sortOrder === 'newest') queries.push(Query.orderDesc("created_at"));
                 else if (sortOrder === 'oldest') queries.push(Query.orderAsc("created_at"));
+                else if (sortOrder === 'manual') queries.push(Query.orderAsc("order_index"));
                 // Shuffle handled client side or separate logic normally, assuming simple here
 
                 const postsResponse = await databases.listDocuments(
@@ -772,17 +773,51 @@ export function ProfileView({
                                 <div className="fixed inset-0 z-10" onClick={closeAllMenus} />
                             )}
                             {showSortMenu && (
-                                <div className="absolute mt-8 bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl z-20 py-2 min-w-[140px] animate-in fade-in zoom-in-95 duration-200">
-                                    {['newest', 'oldest', 'shuffle'].map(o => (
-                                        <button key={o} onClick={() => handleSortChange(o as any)} className="w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-foreground/5 transition-colors capitalize">{o === 'newest' ? 'Yeni' : o === 'oldest' ? 'Eski' : 'Karışık'}</button>
-                                    ))}
+                                <div className="absolute top-10 left-0 bg-background/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] z-50 p-1.5 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex flex-col gap-0.5">
+                                        {[
+                                            { id: 'newest', label: 'En Yeni', desc: 'Tarihe göre yeniden eskiye' },
+                                            { id: 'oldest', label: 'En Eski', desc: 'Tarihe göre eskiden yeniye' },
+                                            { id: 'shuffle', label: 'Karışık', desc: 'Rastgele sürpriz düzen' },
+                                            { id: 'manual', label: 'Özel', desc: 'Senin belirlediğin sıra' },
+                                        ].map((o) => (
+                                            <button
+                                                key={o.id}
+                                                onClick={() => handleSortChange(o.id as any)}
+                                                className={`flex flex-col items-start px-3 py-2.5 rounded-xl transition-all ${sortOrder === o.id ? "bg-white/10 text-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
+                                            >
+                                                <span className="text-sm font-semibold tracking-wide flex items-center gap-2">
+                                                    {o.label}
+                                                    {sortOrder === o.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                                                </span>
+                                                <span className="text-[10px] opacity-60 font-medium tracking-wider uppercase">{o.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                             {showFilterMenu && (
-                                <div className="absolute mt-8 ml-20 bg-background/80 backdrop-blur-xl border border-border/50 rounded-xl shadow-2xl z-20 py-2 min-w-[140px] animate-in fade-in zoom-in-95 duration-200">
-                                    {['default', 'dark', 'light', 'soft'].map(f => (
-                                        <button key={f} onClick={() => handleFilterChange(f as any)} className="w-full text-left px-4 py-2.5 text-xs font-medium hover:bg-foreground/5 transition-colors capitalize">{f}</button>
-                                    ))}
+                                <div className="absolute top-10 left-0 bg-background/95 backdrop-blur-3xl border border-white/10 rounded-2xl shadow-[0_0_40px_-10px_rgba(0,0,0,0.5)] z-50 p-1.5 min-w-[200px] animate-in fade-in zoom-in-95 duration-200">
+                                    <div className="flex flex-col gap-0.5">
+                                        {[
+                                            { id: 'default', label: 'Standart', desc: 'Orijinal renkler' },
+                                            { id: 'dark', label: 'Karanlık', desc: 'Sinematik ve koyu' },
+                                            { id: 'light', label: 'Aydınlık', desc: 'Ferah ve parlak' },
+                                            { id: 'soft', label: 'Yumuşak', desc: 'Vintage esintiler' },
+                                        ].map((f) => (
+                                            <button
+                                                key={f.id}
+                                                onClick={() => handleFilterChange(f.id as any)}
+                                                className={`flex flex-col items-start px-3 py-2.5 rounded-xl transition-all ${filterType === f.id ? "bg-white/10 text-foreground" : "text-muted-foreground hover:bg-white/5 hover:text-foreground"}`}
+                                            >
+                                                <span className="text-sm font-semibold tracking-wide flex items-center gap-2">
+                                                    {f.label}
+                                                    {filterType === f.id && <div className="w-1.5 h-1.5 rounded-full bg-blue-500" />}
+                                                </span>
+                                                <span className="text-[10px] opacity-60 font-medium tracking-wider uppercase">{f.desc}</span>
+                                            </button>
+                                        ))}
+                                    </div>
                                 </div>
                             )}
                         </div>

@@ -16,6 +16,8 @@ import { VscoLogo } from "@/components/vsco-logo"
 import { MobileMenu } from "@/components/mobile-menu"
 import { SearchModal } from "@/components/search-modal"
 import { MobileTabBar } from "@/components/mobile-tab-bar"
+import { ManualSortModal } from "@/components/manual-sort-modal"
+import { Grid } from "lucide-react"
 
 interface Profile {
   id: string
@@ -90,6 +92,7 @@ export function SettingsView({
   const [posts, setPosts] = useState(initialPosts)
   const [reposts, setReposts] = useState(initialReposts)
   const [deletePostConfirm, setDeletePostConfirm] = useState<string | null>(null)
+  const [showSortModal, setShowSortModal] = useState(false)
 
   const avatarInputRef = useRef<HTMLInputElement>(null)
 
@@ -554,12 +557,25 @@ export function SettingsView({
           </div>
         ) : activeTab === "posts" ? (
           <div className="space-y-4 pb-24 md:pb-6">
-            <Link href="/olustur">
-              <Button className="w-full">
-                <Plus className="w-4 h-4 mr-2" />
-                Gönderi Ekle
+            <div className="flex gap-2">
+              <Link href="/olustur" className="flex-1">
+                <Button className="w-full">
+                  <Plus className="w-4 h-4 mr-2" />
+                  Gönderi Ekle
+                </Button>
+              </Link>
+              <Button variant="outline" className="flex-1" onClick={() => setShowSortModal(true)}>
+                <Grid className="w-4 h-4 mr-2" />
+                Düzeni Manuel Ayarla
               </Button>
-            </Link>
+            </div>
+
+            <ManualSortModal
+              isOpen={showSortModal}
+              onClose={() => setShowSortModal(false)}
+              posts={posts}
+              onSaveSuccess={() => router.refresh()}
+            />
             {posts.length > 0 ? (
               <>
                 {posts.map((post, index) => (
@@ -585,22 +601,7 @@ export function SettingsView({
                       />
                     </div>
                     <div className="flex flex-col justify-center gap-1 flex-shrink-0">
-                      <button
-                        onClick={() => handleUpdatePostOrder(post.id, "up")}
-                        disabled={index === 0}
-                        className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
-                        title="Yukarı taşı"
-                      >
-                        ▲
-                      </button>
-                      <button
-                        onClick={() => handleUpdatePostOrder(post.id, "down")}
-                        disabled={index === posts.length - 1}
-                        className="p-2 hover:bg-accent rounded disabled:opacity-30 text-xs"
-                        title="Aşağı taşı"
-                      >
-                        ▼
-                      </button>
+                      {/* Up/Down buttons removed as per request */}
                       <button
                         onClick={() => handleDeletePost(post.id)}
                         className="p-2 hover:bg-destructive/10 rounded"

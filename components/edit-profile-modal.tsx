@@ -4,6 +4,7 @@ import { useState } from "react"
 import { X, Loader2 } from "lucide-react"
 import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
 import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 interface EditProfileModalProps {
     isOpen: boolean
@@ -23,6 +24,7 @@ export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }
     const [bio, setBio] = useState(currentProfile.bio || "")
     const [loading, setLoading] = useState(false)
     const [previewPosts, setPreviewPosts] = useState(posts)
+    const { refreshUser } = useAuth() // Get refreshUser from context
 
     const router = useRouter()
 
@@ -44,6 +46,7 @@ export function EditProfileModal({ isOpen, onClose, currentProfile, posts = [] }
                 }
             )
 
+            await refreshUser() // Force update auth context to reflect username change immediately
             router.refresh()
             onClose()
         } catch (error) {

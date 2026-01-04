@@ -3,8 +3,7 @@
 import Link from "next/link"
 import { VscoLogo } from "@/components/vsco-logo"
 import { useEffect, useState } from "react"
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { Query } from "appwrite"
+import { databases, APPWRITE_CONFIG, Query } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
 
 import { VscoImage } from "@/components/vsco-image"

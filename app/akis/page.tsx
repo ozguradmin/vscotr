@@ -5,8 +5,7 @@ import { useRouter } from "next/navigation"
 import { FeedView } from "@/components/feed-view"
 import { FeedSkeleton } from "@/components/skeleton-loader"
 import { useAuth } from "@/lib/auth-context"
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { Query } from "appwrite"
+import { databases, APPWRITE_CONFIG, Query } from "@/lib/appwrite/client"
 
 interface Post {
   id: string

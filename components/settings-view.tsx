@@ -2,8 +2,7 @@
 
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
-import { databases, storage, account, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { ID, Query } from "appwrite"
+import { databases, storage, account, APPWRITE_CONFIG, ID, Query } from "@/lib/appwrite/client"
 import { VscoImage } from "@/components/vsco-image"
 import { useRouter } from "next/navigation"
 import Link from "next/link"

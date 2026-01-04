@@ -10,9 +10,8 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { VscoImage } from "@/components/vsco-image"
 import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { databases, APPWRITE_CONFIG, Query, ID } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
-import { ID, Query } from "appwrite"
 
 interface Post {
     id: string

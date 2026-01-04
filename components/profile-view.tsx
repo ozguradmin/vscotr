@@ -11,12 +11,11 @@ import { SettingsModal } from "@/components/settings-modal"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
 import { VscoImage } from "@/components/vsco-image"
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
+import { databases, APPWRITE_CONFIG, Query, ID } from "@/lib/appwrite/client"
 import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { ID, Query } from "appwrite"
 
 interface Profile {
     id: string

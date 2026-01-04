@@ -4,8 +4,7 @@ import { useEffect, useState } from "react"
 import { useRouter } from "next/navigation"
 import { SettingsView } from "@/components/settings-view"
 import { useAuth } from "@/lib/auth-context"
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { Query } from "appwrite"
+import { databases, APPWRITE_CONFIG, Query } from "@/lib/appwrite/client"
 import { FeedSkeleton } from "@/components/skeleton-loader"
 
 export default function AyarlarPage() {

@@ -2,8 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { Search, Loader2 } from "lucide-react"
-import { databases, APPWRITE_CONFIG } from "@/lib/appwrite/client"
-import { Query } from "appwrite"
+import { databases, APPWRITE_CONFIG, Query } from "@/lib/appwrite/client"
 import Link from "next/link"
 import { useDebounce } from "@/hooks/use-debounce"
 import { VscoImage } from "@/components/vsco-image"

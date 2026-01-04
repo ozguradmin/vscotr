@@ -186,9 +186,17 @@ export const databases = {
     }
 };
 
-// ID generator compatibility
+// ID generator compatibility - generate actual unique IDs
 export const ID = {
-    unique: () => 'unique()'
+    unique: () => {
+        // Generate unique ID similar to Firestore auto-ID
+        const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789';
+        let result = '';
+        for (let i = 0; i < 20; i++) {
+            result += chars.charAt(Math.floor(Math.random() * chars.length));
+        }
+        return result;
+    }
 };
 
 // Storage compatibility (placeholder - we use R2 now)

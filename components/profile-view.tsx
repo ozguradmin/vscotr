@@ -981,10 +981,10 @@ export function ProfileView({
                                     <div className="flex items-center gap-3 min-w-0 flex-1">
                                         <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
                                             {profile.avatar_url ? (
-                                                <VscoImage
-                                                    src={profile.avatar_url}
+                                                <img
+                                                    src={getOptimizedImageUrl(profile.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                                                     alt=""
-                                                    className="w-full h-full"
+                                                    className="w-full h-full object-cover"
                                                 />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-sm font-semibold text-muted-foreground bg-muted">

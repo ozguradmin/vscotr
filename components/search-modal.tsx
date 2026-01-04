@@ -6,6 +6,7 @@ import { databases, APPWRITE_CONFIG, Query } from "@/lib/appwrite/client"
 import Link from "next/link"
 import { useDebounce } from "@/hooks/use-debounce"
 import { VscoImage } from "@/components/vsco-image"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 
 interface SearchModalProps {
   isOpen: boolean
@@ -153,10 +154,10 @@ export function SearchModal({ isOpen, onClose }: SearchModalProps) {
                       >
                         <div className="w-12 h-12 rounded-full overflow-hidden relative">
                           {profile.avatar_url ? (
-                            <VscoImage
-                              src={profile.avatar_url || "/placeholder.svg"}
+                            <img
+                              src={getOptimizedImageUrl(profile.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                               alt=""
-                              className="w-full h-full"
+                              className="w-full h-full object-cover"
                             />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-lg font-semibold text-muted-foreground bg-muted">

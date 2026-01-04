@@ -353,10 +353,10 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                     >
                                         <div className="w-6 h-6 rounded-full overflow-hidden flex-shrink-0 relative">
                                             {post.profiles.avatar_url ? (
-                                                <VscoImage
-                                                    src={post.profiles.avatar_url || "/placeholder.svg"}
+                                                <img
+                                                    src={getOptimizedImageUrl(post.profiles.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                                                     alt=""
-                                                    className="w-full h-full"
+                                                    className="w-full h-full object-cover"
                                                 />
                                             ) : (
                                                 <div className="w-full h-full flex items-center justify-center text-xs font-semibold text-white bg-muted">
@@ -435,7 +435,7 @@ export function DiscoverView({ posts: initialPosts }: DiscoverViewProps) {
                                 <div className="w-10 h-10 rounded-full overflow-hidden flex-shrink-0 relative">
                                     {selectedPost.profiles.avatar_url ? (
                                         <img
-                                            src={selectedPost.profiles.avatar_url || "/placeholder.svg"}
+                                            src={getOptimizedImageUrl(selectedPost.profiles.avatar_url, { width: 100, output: 'webp' }) || "/placeholder.svg"}
                                             alt=""
                                             className="w-full h-full object-cover"
                                         />

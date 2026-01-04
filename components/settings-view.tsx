@@ -3,6 +3,7 @@
 import { useState, useRef, useEffect } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { databases, storage, account, APPWRITE_CONFIG, ID, Query } from "@/lib/appwrite/client"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 import { VscoImage } from "@/components/vsco-image"
 import { useRouter } from "next/navigation"
 import Link from "next/link"
@@ -590,11 +591,10 @@ export function SettingsView({
               <>
                 {posts.map((post, index) => (
                   <div key={post.id} className="flex gap-3 p-4 border border-border rounded-lg">
-                    <VscoImage
-                      src={post.image_url || "/placeholder.svg"}
+                    <img
+                      src={getOptimizedImageUrl(post.image_url, { width: 150, output: 'webp' }) || "/placeholder.svg"}
                       alt=""
-                      className="w-20 h-20 rounded flex-shrink-0 transform-none"
-                      width={150}
+                      className="w-20 h-20 rounded flex-shrink-0 object-cover"
                     />
                     <div className="flex-1 min-w-0 space-y-2">
                       <Input
@@ -641,11 +641,10 @@ export function SettingsView({
             {reposts && reposts.length > 0 ? (
               reposts.map((repost) => (
                 <div key={repost.id} className="flex gap-4 p-4 border border-border rounded-lg">
-                  <VscoImage
-                    src={repost.posts.image_url || "/placeholder.svg"}
+                  <img
+                    src={getOptimizedImageUrl(repost.posts.image_url, { width: 150, output: 'webp' }) || "/placeholder.svg"}
                     alt=""
-                    className="w-20 h-20 rounded flex-shrink-0"
-                    aspectRatio={repost.posts.aspect_ratio || 1}
+                    className="w-20 h-20 rounded flex-shrink-0 object-cover"
                   />
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-muted-foreground">

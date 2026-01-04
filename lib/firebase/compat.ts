@@ -26,9 +26,10 @@ export const Query = {
     offset: (num: number) => ({ type: 'offset', value: num }),
     orderAsc: (field: string) => ({ type: 'orderAsc', field }),
     orderDesc: (field: string) => ({ type: 'orderDesc', field }),
+    startsWith: (field: string, value: string) => ({ type: 'startsWith', field, value }),
 };
 
-type QueryFilter = ReturnType<typeof Query.equal>;
+type QueryFilter = ReturnType<typeof Query.equal> | ReturnType<typeof Query.startsWith>;
 
 function buildFirestoreQuery(collectionRef: any, queries: QueryFilter[] = []) {
     const constraints: QueryConstraint[] = [];
@@ -57,6 +58,10 @@ function buildFirestoreQuery(collectionRef: any, queries: QueryFilter[] = []) {
             }
         } else if (q.type === 'notEqual') {
             constraints.push(where(q.field, '!=', q.value));
+        } else if (q.type === 'startsWith') {
+            // Firestore prefix search
+            constraints.push(where(q.field, '>=', q.value));
+            constraints.push(where(q.field, '<=', q.value + '\uf8ff'));
         } else if (q.type === 'orderAsc') {
             constraints.push(orderBy(q.field, 'asc'));
         } else if (q.type === 'orderDesc') {

@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { auth, db, COLLECTIONS } from "@/lib/firebase/client"
-import { createUserWithEmailAndPassword, updateProfile } from "firebase/auth"
+import { createUserWithEmailAndPassword, updateProfile, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
 import { doc, setDoc, getDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore"
 import { useAuth } from "@/lib/auth-context"
 
@@ -24,6 +24,52 @@ export default function KayitPage() {
   const searchParams = useSearchParams()
   const followId = searchParams.get('follow')
   const { refreshUser, logout } = useAuth()
+
+  const handlePostLogin = async (user: any) => {
+    // 5. Refresh Context
+    await refreshUser()
+
+    // Auto-follow logic
+    if (followId && followId !== user.uid) {
+      try {
+        // Check if already following
+        const followsRef = collection(db, COLLECTIONS.FOLLOWS)
+        const q = query(followsRef,
+          where('follower_id', '==', user.uid),
+          where('following_id', '==', followId)
+        )
+        const checkSnapshot = await getDocs(q)
+
+        if (checkSnapshot.empty) {
+          await addDoc(collection(db, COLLECTIONS.FOLLOWS), {
+            follower_id: user.uid,
+            following_id: followId,
+            created_at: new Date()
+          })
+        }
+
+        // Fetch target profile to redirect
+        const targetProfileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, followId))
+        if (targetProfileDoc.exists()) {
+          const targetProfile = targetProfileDoc.data()
+          if (targetProfile.username) {
+            router.push(`/${targetProfile.username}`)
+            return
+          }
+        }
+      } catch (e) {
+        console.error("Auto follow error", e)
+      }
+    }
+
+    // Check if profile exists (for Google login case)
+    const profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, user.uid))
+    if (profileDoc.exists() && profileDoc.data().username) {
+      router.push(`/${profileDoc.data().username}`)
+    } else {
+      router.push("/ayarlar")
+    }
+  }
 
   const handleSignUp = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -75,33 +121,7 @@ export default function KayitPage() {
         updated_at: new Date()
       })
 
-      // 5. Refresh Context
-      await refreshUser()
-
-      // Auto-follow logic
-      if (followId) {
-        try {
-          await addDoc(collection(db, COLLECTIONS.FOLLOWS), {
-            follower_id: newUser.uid,
-            following_id: followId,
-            created_at: new Date()
-          })
-
-          // Fetch target profile to redirect
-          const targetProfileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, followId))
-          if (targetProfileDoc.exists()) {
-            const targetProfile = targetProfileDoc.data()
-            if (targetProfile.username) {
-              router.push(`/${targetProfile.username}`)
-              return
-            }
-          }
-        } catch (e) {
-          console.error("Auto follow error", e)
-        }
-      }
-
-      router.push(`/${username.toLowerCase()}`)
+      await handlePostLogin(newUser)
 
     } catch (error: any) {
       console.error("[Register] Signup error:", error)
@@ -113,6 +133,25 @@ export default function KayitPage() {
         setError("Geçersiz e-posta adresi")
       } else {
         setError(error.message || "Bir hata oluştu")
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const provider = new GoogleAuthProvider()
+      const result = await signInWithPopup(auth, provider)
+      await handlePostLogin(result.user)
+    } catch (error: any) {
+      console.error("Google login error:", error)
+      if (error?.code === 'auth/popup-closed-by-user') {
+        // Ignore
+      } else {
+        setError("Google ile kayıt yapılamadı: " + error.message)
       }
     } finally {
       setIsLoading(false)
@@ -170,7 +209,7 @@ export default function KayitPage() {
               type="password"
               required
               value={repeatPassword}
-              onChange={(e) => setRepeatPassword(e.target.value)}
+              onChange={(e) => setPassword(e.target.value)}
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}
@@ -178,6 +217,22 @@ export default function KayitPage() {
             {isLoading ? "Hesap oluşturuluyor..." : "Kayıt Ol"}
           </Button>
         </form>
+
+        <div className="relative my-4">
+          <div className="absolute inset-0 flex items-center">
+            <span className="w-full border-t" />
+          </div>
+          <div className="relative flex justify-center text-xs uppercase">
+            <span className="bg-background px-2 text-muted-foreground">veya</span>
+          </div>
+        </div>
+
+        <Button variant="outline" type="button" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
+          <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+            <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+          </svg>
+          Google ile Kayıt Ol
+        </Button>
 
         <p className="text-center text-sm text-muted-foreground mt-6">
           Zaten hesabın var mı?{" "}

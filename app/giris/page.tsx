@@ -9,8 +9,8 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { auth, db, COLLECTIONS } from "@/lib/firebase/client"
-import { signInWithEmailAndPassword, sendPasswordResetEmail } from "firebase/auth"
-import { doc, getDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore"
+import { signInWithEmailAndPassword, sendPasswordResetEmail, GoogleAuthProvider, signInWithPopup } from "firebase/auth"
+import { doc, getDoc, setDoc, collection, query, where, getDocs, addDoc } from "firebase/firestore"
 import { useAuth } from "@/lib/auth-context"
 import { useSearchParams } from "next/navigation"
 
@@ -26,6 +26,63 @@ export default function GirisPage() {
   const followId = searchParams.get('follow')
   const { refreshUser } = useAuth()
 
+  const handlePostLogin = async (user: any) => {
+    // 2. Refresh Context
+    await refreshUser()
+
+    // 3. Check Profile
+    const profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, user.uid))
+    const profile = profileDoc.exists() ? profileDoc.data() : null
+
+    if (profile && profile.username) {
+      // Auto-follow logic
+      if (followId && followId !== user.uid) {
+        try {
+          // Check if already following
+          const followsRef = collection(db, COLLECTIONS.FOLLOWS)
+          const q = query(followsRef,
+            where('follower_id', '==', user.uid),
+            where('following_id', '==', followId)
+          )
+          // ... (rest of logic)
+          const checkSnapshot = await getDocs(q)
+
+          if (checkSnapshot.empty) {
+            await addDoc(collection(db, COLLECTIONS.FOLLOWS), {
+              follower_id: user.uid,
+              following_id: followId,
+              created_at: new Date()
+            })
+          }
+
+          const targetProfileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, followId))
+          if (targetProfileDoc.exists()) {
+            const targetProfile = targetProfileDoc.data()
+            if (targetProfile.username) {
+              router.push(`/${targetProfile.username}`)
+              return
+            }
+          }
+        } catch (e) {
+          console.error("Auto follow error", e)
+        }
+      }
+      router.push(`/akis`)
+    } else {
+      // If authenticating with Google for first time, might need to create profile
+      // But usually we redirect to settings/onboarding
+      if (!profile) {
+        // Create basic profile for Google users if missing? 
+        // Or redirect to onboarding. For now redirect to settings to set username
+        // Check if Google sign in provided a name
+        if (user.displayName) {
+          // Optional: Pre-fill profile? For now let them set it in settings
+        }
+      }
+      router.push("/ayarlar")
+    }
+  }
+
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault()
     setIsLoading(true)
@@ -33,54 +90,8 @@ export default function GirisPage() {
     setSuccess(null)
 
     try {
-      // 1. Sign in with Firebase
       const userCredential = await signInWithEmailAndPassword(auth, email, password)
-      const user = userCredential.user
-
-      // 2. Refresh Context
-      await refreshUser()
-
-      // 3. Check Profile
-      const profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, user.uid))
-      const profile = profileDoc.exists() ? profileDoc.data() : null
-
-      if (profile && profile.username) {
-        // Auto-follow logic
-        if (followId && followId !== user.uid) {
-          try {
-            // Check if already following
-            const followsRef = collection(db, COLLECTIONS.FOLLOWS)
-            const q = query(followsRef,
-              where('follower_id', '==', user.uid),
-              where('following_id', '==', followId)
-            )
-            const checkSnapshot = await getDocs(q)
-
-            if (checkSnapshot.empty) {
-              await addDoc(collection(db, COLLECTIONS.FOLLOWS), {
-                follower_id: user.uid,
-                following_id: followId,
-                created_at: new Date()
-              })
-            }
-
-            // Fetch target profile to redirect
-            const targetProfileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, followId))
-            if (targetProfileDoc.exists()) {
-              const targetProfile = targetProfileDoc.data()
-              if (targetProfile.username) {
-                router.push(`/${targetProfile.username}`)
-                return
-              }
-            }
-          } catch (e) {
-            console.error("Auto follow error", e)
-          }
-        }
-        router.push(`/akis`)
-      } else {
-        router.push("/ayarlar")
-      }
+      await handlePostLogin(userCredential.user)
     } catch (error: any) {
       console.error("Login error:", error)
       if (error?.code === "auth/invalid-credential" || error?.code === "auth/wrong-password") {
@@ -91,6 +102,25 @@ export default function GirisPage() {
         setError("Çok fazla deneme. Lütfen daha sonra tekrar deneyin.")
       } else {
         setError("Giriş yapılamadı: " + (error.message || "Bilinmeyen hata"))
+      }
+    } finally {
+      setIsLoading(false)
+    }
+  }
+
+  const handleGoogleLogin = async () => {
+    setIsLoading(true)
+    setError(null)
+    try {
+      const provider = new GoogleAuthProvider()
+      const result = await signInWithPopup(auth, provider)
+      await handlePostLogin(result.user)
+    } catch (error: any) {
+      console.error("Google login error:", error)
+      if (error?.code === 'auth/popup-closed-by-user') {
+        // User closed popup, no error needed usually
+      } else {
+        setError("Google ile giriş yapılamadı: " + error.message)
       }
     } finally {
       setIsLoading(false)
@@ -168,35 +198,54 @@ export default function GirisPage() {
             </button>
           </form>
         ) : (
-          <form onSubmit={handleLogin} className="space-y-4">
-            <div className="space-y-2">
-              <Label htmlFor="email">E-posta</Label>
-              <Input
-                id="email"
-                type="email"
-                placeholder="ornek@email.com"
-                required
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                disabled={isLoading}
-              />
+          <div className="space-y-4">
+            <form onSubmit={handleLogin} className="space-y-4">
+              <div className="space-y-2">
+                <Label htmlFor="email">E-posta</Label>
+                <Input
+                  id="email"
+                  type="email"
+                  placeholder="ornek@email.com"
+                  required
+                  value={email}
+                  onChange={(e) => setEmail(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="password">Şifre</Label>
+                <Input
+                  id="password"
+                  type="password"
+                  required
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                  disabled={isLoading}
+                />
+              </div>
+              {error && <p className="text-sm text-red-500">{error}</p>}
+              {success && <p className="text-sm text-green-500">{success}</p>}
+              <Button type="submit" className="w-full" disabled={isLoading}>
+                {isLoading ? "Giriş yapılıyor..." : "Giriş Yap"}
+              </Button>
+            </form>
+
+            <div className="relative">
+              <div className="absolute inset-0 flex items-center">
+                <span className="w-full border-t" />
+              </div>
+              <div className="relative flex justify-center text-xs uppercase">
+                <span className="bg-background px-2 text-muted-foreground">veya</span>
+              </div>
             </div>
-            <div className="space-y-2">
-              <Label htmlFor="password">Şifre</Label>
-              <Input
-                id="password"
-                type="password"
-                required
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                disabled={isLoading}
-              />
-            </div>
-            {error && <p className="text-sm text-red-500">{error}</p>}
-            {success && <p className="text-sm text-green-500">{success}</p>}
-            <Button type="submit" className="w-full" disabled={isLoading}>
-              {isLoading ? "Giriş yapılıyor..." : "Giriş Yap"}
+
+            <Button variant="outline" type="button" className="w-full" onClick={handleGoogleLogin} disabled={isLoading}>
+              <svg className="mr-2 h-4 w-4" aria-hidden="true" focusable="false" data-prefix="fab" data-icon="google" role="img" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 488 512">
+                <path fill="currentColor" d="M488 261.8C488 403.3 391.1 504 248 504 110.8 504 0 393.2 0 256S110.8 8 248 8c66.8 0 123 24.5 166.3 64.9l-67.5 64.9C258.5 52.6 94.3 116.6 94.3 256c0 86.5 69.1 156.6 153.7 156.6 98.2 0 135-70.4 140.8-106.9H248v-85.3h236.1c2.3 12.7 3.9 24.9 3.9 41.4z"></path>
+              </svg>
+              Google ile Giriş Yap
             </Button>
+
             <button
               type="button"
               onClick={() => { setShowResetForm(true); setError(null); setSuccess(null); }}
@@ -204,7 +253,7 @@ export default function GirisPage() {
             >
               Şifremi Unuttum
             </button>
-          </form>
+          </div>
         )}
 
         <p className="text-center text-sm text-muted-foreground mt-6">

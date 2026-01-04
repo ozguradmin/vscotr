@@ -78,8 +78,8 @@ export function LandingPage() {
           }))
           setFeaturedPosts(postsWithProfiles)
         }
-      } catch (err) {
-        console.error('[Landing] Error:', err)
+      } catch (error) {
+        console.error("Featured posts error:", error)
       } finally {
         setIsLoading(false)
       }
@@ -243,7 +243,7 @@ export function LandingPage() {
 
             <div className="relative w-full h-full flex items-center justify-center">
               <img
-                src={getOptimizedImageUrl(selectedPost.image_url, { width: 1200, output: 'webp' }) || "/placeholder.svg"}
+                src={getOptimizedImageUrl(selectedPost.image_url, { width: 600, output: 'webp' }) || "/placeholder.svg"} // Kullanıcı isteği: Büyük açılmıyorsa küçük olanı (cache'li) göster
                 alt={selectedPost.caption || ""}
                 className="max-w-full max-h-[85vh] object-contain rounded-sm shadow-2xl"
               />

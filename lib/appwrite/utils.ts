@@ -25,9 +25,7 @@ export function getOptimizedImageUrl(url: string, options: OptimizeImageOptions 
 
     // Check if it's an Appwrite Storage URL
     if (url.includes('/storage/buckets/') && url.includes('/files/')) {
-        // FAST FIX: Bypass wsrv.nl for Appwrite Cloud URLs as they seem to fail with the proxy
-        // This ensures legacy images (before R2 migration) still load directly from Appwrite
-        return url;
+        // Appwrite Cloud URL handling logic proceeds to wsrv.nl construction below
     }
 
     // Handle generic URLs (including R2, external links etc.)

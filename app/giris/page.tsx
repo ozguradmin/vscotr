@@ -67,16 +67,32 @@ export default function GirisPage() {
           console.error("Auto follow error", e)
         }
       }
-      router.push(`/akis`)
+      router.push(`/${profile.username}`)
     } else {
-      // If authenticating with Google for first time, might need to create profile
-      // But usually we redirect to settings/onboarding
+      // If authenticating with Google for first time, create profile automatically
       if (!profile) {
-        // Create basic profile for Google users if missing? 
-        // Or redirect to onboarding. For now redirect to settings to set username
-        // Check if Google sign in provided a name
-        if (user.displayName) {
-          // Optional: Pre-fill profile? For now let them set it in settings
+        // Generate a username from email or displayName
+        const baseUsername = user.email?.split('@')[0] || user.displayName?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user'
+        const username = baseUsername + Math.floor(Math.random() * 1000)
+
+        try {
+          await setDoc(doc(db, COLLECTIONS.PROFILES, user.uid), {
+            username: username,
+            display_name: user.displayName || username,
+            avatar_url: user.photoURL || null,
+            bio: null,
+            member_badge: null,
+            location: null,
+            grid_sort: null,
+            grid_filter: null,
+            created_at: new Date(),
+            updated_at: new Date()
+          })
+          await refreshUser()
+          router.push(`/${username}`)
+          return
+        } catch (e) {
+          console.error("Error creating profile for Google user:", e)
         }
       }
       router.push("/ayarlar")

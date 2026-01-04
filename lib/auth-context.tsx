@@ -2,8 +2,8 @@
 
 import React, { createContext, useContext, useEffect, useState } from "react"
 import { auth, db, COLLECTIONS } from "@/lib/firebase/client"
-import { onAuthStateChanged, signOut, User } from "firebase/auth"
-import { doc, getDoc } from "firebase/firestore"
+import { onAuthStateChanged, signOut, User as FirebaseUser } from "firebase/auth"
+import { doc, getDoc, setDoc } from "firebase/firestore"
 import { useRouter } from "next/navigation"
 
 interface Profile {
@@ -18,11 +18,20 @@ interface Profile {
     grid_filter: string | null
 }
 
+// Appwrite-compatible user type
+interface AppwriteCompatUser {
+    $id: string
+    name: string | null
+    email: string | null
+    uid: string
+    displayName: string | null
+}
+
 interface AuthContextType {
-    user: User | null
+    user: AppwriteCompatUser | null
     currentProfile: Profile | null
     loading: boolean
-    login: (user: User) => void
+    login: (user: FirebaseUser) => void
     logout: () => Promise<void>
     refreshUser: () => Promise<void>
 }
@@ -30,10 +39,22 @@ interface AuthContextType {
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
-    const [user, setUser] = useState<User | null>(null)
+    const [user, setUser] = useState<AppwriteCompatUser | null>(null)
     const [currentProfile, setCurrentProfile] = useState<Profile | null>(null)
     const [loading, setLoading] = useState(true)
     const router = useRouter()
+
+    // Convert Firebase User to Appwrite-compatible format
+    const toAppwriteUser = (firebaseUser: FirebaseUser | null): AppwriteCompatUser | null => {
+        if (!firebaseUser) return null
+        return {
+            $id: firebaseUser.uid,
+            name: firebaseUser.displayName,
+            email: firebaseUser.email,
+            uid: firebaseUser.uid,
+            displayName: firebaseUser.displayName
+        }
+    }
 
     const fetchProfile = async (uid: string) => {
         try {
@@ -54,13 +75,14 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     const refreshUser = async () => {
         if (auth.currentUser) {
+            setUser(toAppwriteUser(auth.currentUser))
             await fetchProfile(auth.currentUser.uid)
         }
     }
 
     useEffect(() => {
         const unsubscribe = onAuthStateChanged(auth, async (firebaseUser) => {
-            setUser(firebaseUser)
+            setUser(toAppwriteUser(firebaseUser))
             if (firebaseUser) {
                 await fetchProfile(firebaseUser.uid)
             } else {
@@ -72,9 +94,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return () => unsubscribe()
     }, [])
 
-    const login = (user: User) => {
-        setUser(user)
-        fetchProfile(user.uid)
+    const login = (firebaseUser: FirebaseUser) => {
+        setUser(toAppwriteUser(firebaseUser))
+        fetchProfile(firebaseUser.uid)
     }
 
     const logout = async () => {

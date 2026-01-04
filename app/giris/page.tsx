@@ -157,7 +157,7 @@ export default function GirisPage() {
 
     try {
       await sendPasswordResetEmail(auth, email)
-      setSuccess("Şifre sıfırlama linki e-posta adresinize gönderildi. Lütfen gelen kutunuzu kontrol edin.")
+      setSuccess("Şifre sıfırlama linki e-posta adresinize gönderildi. Lütfen gelen kutunuzu ve SPAM/İstenmeyen klasörünü kontrol edin!")
       setShowResetForm(false)
     } catch (error: any) {
       console.error("Password reset error:", error)

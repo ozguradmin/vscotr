@@ -3,7 +3,7 @@
 import Link from "next/link"
 import { VscoLogo } from "@/components/vsco-logo"
 import { useEffect, useState } from "react"
-import { databases, APPWRITE_CONFIG, Query } from "@/lib/appwrite/client"
+import { databases, APPWRITE_CONFIG, Query, ID } from "@/lib/appwrite/client"
 import { useAuth } from "@/lib/auth-context"
 
 import { VscoImage } from "@/components/vsco-image"
@@ -15,44 +15,133 @@ export function LandingPage() {
   const [featuredPosts, setFeaturedPosts] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(true)
   const [selectedPost, setSelectedPost] = useState<any | null>(null)
+  const [isLiked, setIsLiked] = useState(false)
+  const [isReposted, setIsReposted] = useState(false)
+  const [actionLoading, setActionLoading] = useState(false)
 
   const { user } = useAuth()
+
+  // Check like/repost status when modal opens
+  useEffect(() => {
+    const checkStatus = async () => {
+      if (!selectedPost || !user) return
+      try {
+        const likesRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          [Query.equal("user_id", user.$id), Query.equal("post_id", selectedPost.id)]
+        )
+        setIsLiked(likesRes.documents.length > 0)
+
+        const repostsRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+          [Query.equal("user_id", user.$id), Query.equal("post_id", selectedPost.id)]
+        )
+        setIsReposted(repostsRes.documents.length > 0)
+      } catch (e) {
+        console.error("Status check error:", e)
+      }
+    }
+    checkStatus()
+  }, [selectedPost, user])
+
+  const handleLike = async () => {
+    if (!user || !selectedPost || actionLoading) return
+    setActionLoading(true)
+    try {
+      if (isLiked) {
+        // Unlike
+        const likesRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          [Query.equal("user_id", user.$id), Query.equal("post_id", selectedPost.id)]
+        )
+        if (likesRes.documents.length > 0) {
+          await databases.deleteDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.LIKES,
+            likesRes.documents[0].$id
+          )
+        }
+        setIsLiked(false)
+      } else {
+        // Like
+        await databases.createDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.LIKES,
+          ID.unique(),
+          { user_id: user.$id, post_id: selectedPost.id, created_at: new Date().toISOString() }
+        )
+        setIsLiked(true)
+      }
+    } catch (e) {
+      console.error("Like error:", e)
+    }
+    setActionLoading(false)
+  }
+
+  const handleRepost = async () => {
+    if (!user || !selectedPost || actionLoading) return
+    setActionLoading(true)
+    try {
+      if (isReposted) {
+        // Un-repost
+        const repostsRes = await databases.listDocuments(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+          [Query.equal("user_id", user.$id), Query.equal("post_id", selectedPost.id)]
+        )
+        if (repostsRes.documents.length > 0) {
+          await databases.deleteDocument(
+            APPWRITE_CONFIG.DATABASE_ID,
+            APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+            repostsRes.documents[0].$id
+          )
+        }
+        setIsReposted(false)
+      } else {
+        // Repost
+        await databases.createDocument(
+          APPWRITE_CONFIG.DATABASE_ID,
+          APPWRITE_CONFIG.COLLECTIONS.REPOSTS,
+          ID.unique(),
+          { user_id: user.$id, post_id: selectedPost.id, original_user_id: selectedPost.user_id, created_at: new Date().toISOString() }
+        )
+        setIsReposted(true)
+      }
+    } catch (e) {
+      console.error("Repost error:", e)
+    }
+    setActionLoading(false)
+  }
 
   useEffect(() => {
     const loadFeaturedPosts = async () => {
       try {
-        // Randomize offset to get different images each time (simple customization)
-        // Total posts estimation or try/catch approach
-        const randomOffset = Math.floor(Math.random() * 50)
-
+        // Fetch more posts and shuffle for true randomness
         let postsRes;
         try {
           postsRes = await databases.listDocuments(
             APPWRITE_CONFIG.DATABASE_ID,
             APPWRITE_CONFIG.COLLECTIONS.POSTS,
             [
-              Query.orderDesc("created_at"),
-              Query.limit(8), // Changed from 20 to 8 as requested
-              Query.offset(randomOffset) // Basit randomize
+              Query.limit(100) // Fetch many, will shuffle and take 8
             ]
           )
         } catch (error) {
-          // Fallback if offset is out of bounds or other error
-          console.warn("Error fetching posts with offset, trying without offset:", error);
-          postsRes = await databases.listDocuments(
-            APPWRITE_CONFIG.DATABASE_ID,
-            APPWRITE_CONFIG.COLLECTIONS.POSTS,
-            [
-              Query.orderDesc("created_at"),
-              Query.limit(8) // Changed from 20 to 8 as requested
-            ]
-          )
+          console.warn("Error fetching posts:", error);
+          return
         }
 
-
         if (postsRes.documents.length > 0) {
+          // Shuffle and take 8 random posts
+          const shuffled = postsRes.documents
+            .sort(() => Math.random() - 0.5)
+            .slice(0, 8)
+
           // Unique users
-          const userIds = [...new Set(postsRes.documents.map(p => p.user_id))]
+          const userIds = [...new Set(shuffled.map(p => p.user_id))]
 
           let profilesData: Record<string, any> = {}
           if (userIds.length > 0) {
@@ -64,7 +153,7 @@ export function LandingPage() {
             profilesData = profilesRes.documents.reduce((acc, p) => ({ ...acc, [p.$id]: p }), {})
           }
 
-          const postsWithProfiles = postsRes.documents.map(post => ({
+          const postsWithProfiles = shuffled.map(post => ({
             id: post.$id, // Map Appwrite $id to id
             image_url: post.image_url,
             aspect_ratio: post.aspect_ratio,
@@ -287,10 +376,18 @@ export function LandingPage() {
                   </button>
                 ) : user ? (
                   <>
-                    <button className="p-2 hover:bg-white/20 rounded-full transition-colors">
-                      <Heart className="w-5 h-5" />
+                    <button
+                      onClick={handleLike}
+                      disabled={actionLoading}
+                      className={`p-2 hover:bg-white/20 rounded-full transition-colors ${isLiked ? 'text-red-500' : ''}`}
+                    >
+                      <Heart className={`w-5 h-5 ${isLiked ? 'fill-current' : ''}`} />
                     </button>
-                    <button className="p-2 hover:bg-white/20 rounded-full transition-colors">
+                    <button
+                      onClick={handleRepost}
+                      disabled={actionLoading}
+                      className={`p-2 hover:bg-white/20 rounded-full transition-colors ${isReposted ? 'text-green-500' : ''}`}
+                    >
                       <RotateCcw className="w-5 h-5" />
                     </button>
                   </>

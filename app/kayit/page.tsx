@@ -209,7 +209,7 @@ export default function KayitPage() {
               type="password"
               required
               value={repeatPassword}
-              onChange={(e) => setPassword(e.target.value)}
+              onChange={(e) => setRepeatPassword(e.target.value)}
             />
           </div>
           {error && <p className="text-sm text-red-500">{error}</p>}

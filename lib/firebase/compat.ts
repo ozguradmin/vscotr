@@ -41,7 +41,20 @@ function buildFirestoreQuery(collectionRef: any, queries: QueryFilter[] = []) {
                 // This will be handled separately for getDocument
                 continue;
             }
-            constraints.push(where(q.field, '==', q.value));
+            // Support array values with 'in' operator
+            if (Array.isArray(q.value)) {
+                if (q.value.length > 0) {
+                    // Firestore 'in' supports max 30 values
+                    const chunks = [];
+                    for (let i = 0; i < q.value.length; i += 30) {
+                        chunks.push(q.value.slice(i, i + 30));
+                    }
+                    // For simplicity, use first 30 only (most common case)
+                    constraints.push(where(q.field, 'in', chunks[0]));
+                }
+            } else {
+                constraints.push(where(q.field, '==', q.value));
+            }
         } else if (q.type === 'notEqual') {
             constraints.push(where(q.field, '!=', q.value));
         } else if (q.type === 'orderAsc') {

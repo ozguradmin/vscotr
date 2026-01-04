@@ -591,11 +591,14 @@ export function SettingsView({
               <>
                 {posts.map((post, index) => (
                   <div key={post.id} className="flex gap-3 p-4 border border-border rounded-lg">
-                    <img
-                      src={getOptimizedImageUrl(post.image_url, { width: 150, output: 'webp' }) || "/placeholder.svg"}
-                      alt=""
-                      className="w-20 h-20 rounded flex-shrink-0 object-cover"
-                    />
+                    <div className="w-20 h-20 rounded flex-shrink-0 overflow-hidden">
+                      <VscoImage
+                        src={post.image_url || "/placeholder.svg"}
+                        alt=""
+                        className="w-full h-full"
+                        width={150}
+                      />
+                    </div>
                     <div className="flex-1 min-w-0 space-y-2">
                       <Input
                         placeholder="Açıklama (isteğe bağlı)"
@@ -641,11 +644,14 @@ export function SettingsView({
             {reposts && reposts.length > 0 ? (
               reposts.map((repost) => (
                 <div key={repost.id} className="flex gap-4 p-4 border border-border rounded-lg">
-                  <img
-                    src={getOptimizedImageUrl(repost.posts.image_url, { width: 150, output: 'webp' }) || "/placeholder.svg"}
-                    alt=""
-                    className="w-20 h-20 rounded flex-shrink-0 object-cover"
-                  />
+                  <div className="w-20 h-20 rounded flex-shrink-0 overflow-hidden">
+                    <VscoImage
+                      src={repost.posts.image_url || "/placeholder.svg"}
+                      alt=""
+                      className="w-full h-full"
+                      width={150}
+                    />
+                  </div>
                   <div className="flex-1 min-w-0">
                     <p className="text-sm text-muted-foreground">
                       {new Date(repost.created_at).toLocaleDateString("tr-TR", {

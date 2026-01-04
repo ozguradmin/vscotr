@@ -72,8 +72,14 @@ export default function GirisPage() {
       // If authenticating with Google for first time, create profile automatically
       if (!profile) {
         // Generate a username from email or displayName
-        const baseUsername = user.email?.split('@')[0] || user.displayName?.toLowerCase().replace(/[^a-z0-9]/g, '') || 'user'
-        const username = baseUsername + Math.floor(Math.random() * 1000)
+        let baseUsername = user.email?.split('@')[0].toLowerCase() || 'user';
+
+        // Turkish character mapping
+        const trMap: Record<string, string> = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u' };
+        baseUsername = baseUsername.replace(/[çğıöşü]/g, (char: string) => trMap[char] || char);
+
+        // Remove any remaining non-alphanumeric characters
+        const username = baseUsername.replace(/[^a-z0-9]/g, '') + Math.floor(Math.random() * 1000);
 
         try {
           await setDoc(doc(db, COLLECTIONS.PROFILES, user.uid), {

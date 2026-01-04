@@ -273,17 +273,13 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
           <div className="divide-y divide-border">
             {posts.map((post) => (
               <article key={post.id} className="pb-6">
-                <div
-                  className="w-full bg-muted"
-                  style={{ aspectRatio: post.aspect_ratio || 1 }}
-                >
-                  <img
-                    src={getOptimizedImageUrl(post.image_url, { width: 800, output: 'webp' }) || "/placeholder.svg"}
-                    alt={post.caption || ""}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
+                <VscoImage
+                  src={post.image_url || "/placeholder.svg"}
+                  alt={post.caption || ""}
+                  aspectRatio={post.aspect_ratio || 1}
+                  className="w-full h-full"
+                  width={800}
+                />
 
                 <div className="px-4 pt-3 pb-4 md:pb-0">
                   <div className="flex items-center justify-between">

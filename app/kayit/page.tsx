@@ -63,7 +63,49 @@ export default function KayitPage() {
     }
 
     // Check if profile exists (for Google login case)
-    const profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, user.uid))
+    // Check if profile exists (for Google login case)
+    let profileDoc = await getDoc(doc(db, COLLECTIONS.PROFILES, user.uid))
+
+    if (!profileDoc.exists()) {
+      // Create profile automatically for Google users
+      // Sanitize username: convert to lowercase, replace turkish chars, remove special chars
+      let baseUsername = user.email?.split('@')[0].toLowerCase() || 'user';
+
+      // Turkish character mapping
+      const trMap: Record<string, string> = { 'ç': 'c', 'ğ': 'g', 'ı': 'i', 'ö': 'o', 'ş': 's', 'ü': 'u' };
+      baseUsername = baseUsername.replace(/[çğıöşü]/g, (char: string) => trMap[char] || char);
+
+      // Remove any remaining non-alphanumeric characters
+      let username = baseUsername.replace(/[^a-z0-9]/g, '');
+
+      // Ensure min length
+      if (username.length < 3) username = username + Math.floor(Math.random() * 1000);
+
+      try {
+        await setDoc(doc(db, COLLECTIONS.PROFILES, user.uid), {
+          username: username,
+          display_name: user.displayName || username,
+          avatar_url: user.photoURL || null,
+          bio: null,
+          member_badge: null,
+          location: null,
+          grid_sort: null,
+          grid_filter: null,
+          created_at: new Date(),
+          updated_at: new Date()
+        })
+
+        // Refresh context
+        await refreshUser()
+        router.push(`/${username}`)
+        return
+      } catch (e) {
+        console.error("Profile creation error:", e)
+        router.push("/ayarlar")
+        return
+      }
+    }
+
     if (profileDoc.exists() && profileDoc.data().username) {
       router.push(`/${profileDoc.data().username}`)
     } else {

@@ -170,12 +170,13 @@ export const databases = {
         const collName = getCollectionName(collectionId);
         const docRef = doc(db, collName, documentId);
 
-        await updateDoc(docRef, {
+        // Use setDoc with merge: true to effectively update or create if missing
+        await setDoc(docRef, {
             ...data,
             updated_at: new Date().toISOString()
-        });
+        }, { merge: true });
 
-        return { $id: documentId, ...data };
+        return { ...data, $id: documentId };
     },
 
     async deleteDocument(databaseId: string, collectionId: string, documentId: string) {

@@ -242,7 +242,7 @@ export function LandingPage() {
 
             <div className="relative w-full h-full flex items-center justify-center">
               <img
-                src={getOptimizedImageUrl(selectedPost.image_url, { width: 600, output: 'webp' }) || "/placeholder.svg"} // Kullanıcı isteği: Büyük açılmıyorsa küçük olanı (cache'li) göster
+                src={getOptimizedImageUrl(selectedPost.image_url, { width: 400, output: 'webp' }) || "/placeholder.svg"}
                 alt={selectedPost.caption || ""}
                 className="max-w-full max-h-[85vh] object-contain rounded-sm shadow-2xl"
               />

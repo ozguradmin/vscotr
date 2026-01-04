@@ -111,7 +111,7 @@ export function LikedPostsView({ posts, currentUserId }: LikedPostsViewProps) {
             <button onClick={() => setSelectedPostIndex(null)} className="p-2 hover:bg-accent rounded-full"><X className="w-6 h-6" /></button>
           </div>
           <div className="flex-1 flex items-center justify-center p-4 relative min-h-0">
-            <img src={getOptimizedImageUrl(selectedPost.image_url, { width: 1200, output: 'webp' }) || "/placeholder.svg"} alt={selectedPost.caption || ""} className="max-w-full max-h-[80vh] object-contain" />
+            <img src={getOptimizedImageUrl(selectedPost.image_url, { width: 400, output: 'webp' }) || "/placeholder.svg"} alt={selectedPost.caption || ""} className="max-w-full max-h-[80vh] object-contain" />
             {selectedPostIndex > 0 && <button onClick={() => navigatePost("prev")} className="absolute left-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 rounded-full"><ChevronLeft className="w-6 h-6" /></button>}
             {selectedPostIndex < posts.length - 1 && <button onClick={() => navigatePost("next")} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 bg-background/80 rounded-full"><ChevronRight className="w-6 h-6" /></button>}
           </div>

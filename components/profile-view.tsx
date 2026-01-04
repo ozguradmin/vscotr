@@ -925,7 +925,7 @@ export function ProfileView({
                             <div className="relative w-full h-full max-h-[80vh] flex items-center justify-center">
                                 {/* Native img for reliability */}
                                 <img
-                                    src={getOptimizedImageUrl(selectedPost.image_url, { width: 1200, output: 'webp' }) || "/placeholder.svg"}
+                                    src={getOptimizedImageUrl(selectedPost.image_url, { width: 400, output: 'webp' }) || "/placeholder.svg"}
                                     alt={selectedPost.caption || ""}
                                     className="max-w-full max-h-full object-contain"
                                     style={{ filter: getFilterStyle() }}

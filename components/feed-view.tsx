@@ -11,6 +11,7 @@ import { useRouter, usePathname } from "next/navigation"
 import { useCache } from "@/lib/cache-context"
 import Link from "next/link"
 import { VscoImage } from "@/components/vsco-image"
+import { getOptimizedImageUrl } from "@/lib/appwrite/utils"
 
 interface Post {
   id: string
@@ -204,14 +205,34 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
     }
   }
 
-  const formatDate = (dateString: string | null) => {
-    if (!dateString) return null
-    const date = new Date(dateString)
-    return date.toLocaleDateString("tr-TR", {
-      year: "numeric",
-      month: "long",
-      day: "numeric",
-    })
+  const formatDate = (dateValue: any) => {
+    if (!dateValue) return null
+    try {
+      // Handle Firebase Timestamp
+      let date: Date
+      if (dateValue?.toDate && typeof dateValue.toDate === 'function') {
+        date = dateValue.toDate()
+      } else if (dateValue?.seconds) {
+        // Firestore Timestamp format
+        date = new Date(dateValue.seconds * 1000)
+      } else if (typeof dateValue === 'string') {
+        date = new Date(dateValue)
+      } else if (dateValue instanceof Date) {
+        date = dateValue
+      } else {
+        return null
+      }
+
+      if (isNaN(date.getTime())) return null
+
+      return date.toLocaleDateString("tr-TR", {
+        year: "numeric",
+        month: "long",
+        day: "numeric",
+      })
+    } catch {
+      return null
+    }
   }
 
   return (
@@ -252,13 +273,17 @@ export function FeedView({ posts, currentUserId, currentUsername }: FeedViewProp
           <div className="divide-y divide-border">
             {posts.map((post) => (
               <article key={post.id} className="pb-6">
-                <VscoImage
-                  src={post.image_url || "/placeholder.svg"}
-                  alt={post.caption || ""}
-                  aspectRatio={post.aspect_ratio || 1}
-                  className="w-full h-full"
-                  width={800} // Optimize for feed width
-                />
+                <div
+                  className="w-full bg-muted"
+                  style={{ aspectRatio: post.aspect_ratio || 1 }}
+                >
+                  <img
+                    src={getOptimizedImageUrl(post.image_url, { width: 800, output: 'webp' }) || "/placeholder.svg"}
+                    alt={post.caption || ""}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
 
                 <div className="px-4 pt-3 pb-4 md:pb-0">
                   <div className="flex items-center justify-between">
